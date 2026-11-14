@@ -1,17 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Truck, Package, RefreshCw, FileSpreadsheet, RotateCcw } from 'lucide-react';
-import { GoogleSheetsConfig } from '@/types/order';
+import { Truck, ShoppingCart, Package, FileSpreadsheet, RotateCcw, Camera } from 'lucide-react';
+import { GoogleSheetsConfig, MainTabType } from '@/types/order';
 
 interface HeaderProps {
-  activeTab: 'admin' | 'driver';
-  setActiveTab: (tab: 'admin' | 'driver') => void;
+  activeTab: MainTabType;
+  setActiveTab: (tab: MainTabType) => void;
   syncStatus: 'synced' | 'syncing' | 'offline';
   sheetsConfig: GoogleSheetsConfig;
   onOpenSheetsModal: () => void;
+  onOpenPhotoModal: () => void;
   onResetSampleData: () => void;
   pendingDeliveriesCount: number;
+  pendingShoppingCount: number;
 }
 
 export function Header({
@@ -20,8 +22,10 @@ export function Header({
   syncStatus,
   sheetsConfig,
   onOpenSheetsModal,
+  onOpenPhotoModal,
   onResetSampleData,
-  pendingDeliveriesCount
+  pendingDeliveriesCount,
+  pendingShoppingCount
 }: HeaderProps) {
   const [timeStr, setTimeStr] = useState<string>('');
 
@@ -56,59 +60,82 @@ export function Header({
                   Market<span className="text-emerald-400">Drop</span>
                 </span>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-1.5 py-0.5 rounded border border-emerald-500/30">
-                  PRO
+                  MOBILE
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 hidden sm:block truncate">
-                ระบบจัดการและส่งของสดตามบ้านแบบเรียลไทม์
+                ระบบของสด: ตลาด ➔ ซื้อ ➔ ส่งหน้าบ้าน
               </p>
             </div>
           </div>
 
-          {/* Center Tabs: Admin vs Driver */}
-          <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700/80 shadow-inner">
+          {/* Desktop/Tablet 3 Main Tabs: ของที่ต้องซื้อ vs ที่ต้องส่ง vs จัดการออเดอร์ */}
+          <div className="hidden md:flex bg-slate-800 p-1 rounded-2xl border border-slate-700/80 shadow-inner">
+            {/* Tab 1: ของที่ต้องซื้อ */}
             <button
-              onClick={() => setActiveTab('admin')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-                activeTab === 'admin'
+              onClick={() => setActiveTab('shopping')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                activeTab === 'shopping'
                   ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
-              <Package className="w-4 h-4" />
-              <span>จัดออเดอร์</span>
+              <ShoppingCart className="w-4 h-4" />
+              <span>🛒 ของที่ต้องซื้อ</span>
+              {pendingShoppingCount > 0 && (
+                <span className="ml-1 bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                  {pendingShoppingCount}
+                </span>
+              )}
             </button>
+
+            {/* Tab 2: ที่ต้องส่ง */}
             <button
-              onClick={() => setActiveTab('driver')}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all relative ${
-                activeTab === 'driver'
+              onClick={() => setActiveTab('delivery')}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                activeTab === 'delivery'
                   ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
               }`}
             >
               <Truck className="w-4 h-4" />
-              <span>เริ่มส่งของ (Driver)</span>
+              <span>🛵 ที่ต้องส่ง</span>
               {pendingDeliveriesCount > 0 && (
                 <span className="ml-1 bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
                   {pendingDeliveriesCount}
                 </span>
               )}
             </button>
+
+            {/* Tab 3: จัดการออเดอร์ */}
+            <button
+              onClick={() => setActiveTab('admin')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                activeTab === 'admin'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <Package className="w-4 h-4" />
+              <span>จัดการออเดอร์</span>
+            </button>
           </div>
 
-          {/* Right Action: Clock & Sheets Sync Indicator */}
+          {/* Right Action: Camera Snap Button + Sheets Sync */}
           <div className="flex items-center gap-2">
-            {timeStr && (
-              <span className="hidden md:inline-block text-xs font-mono text-slate-400 bg-slate-800 px-2.5 py-1 rounded-md border border-slate-700">
-                🕒 {timeStr}
-              </span>
-            )}
+            <button
+              onClick={onOpenPhotoModal}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-950/40 active:scale-95 transition-all"
+            >
+              <Camera className="w-4 h-4" />
+              <span className="hidden sm:inline">ถ่ายรูป / คีย์</span>
+            </button>
 
             {/* Google Sheets Sync Pill */}
             <button
               onClick={onOpenSheetsModal}
               title="ตั้งค่าและซิงค์ Google Sheets"
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
                 syncStatus === 'synced'
                   ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
                   : syncStatus === 'syncing'
@@ -118,11 +145,7 @@ export function Header({
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
               <span className="hidden sm:inline">
-                {syncStatus === 'synced'
-                  ? 'ซิงค์ชีตแล้ว'
-                  : syncStatus === 'syncing'
-                  ? 'กำลังซิงค์...'
-                  : 'Google Sheets'}
+                {syncStatus === 'synced' ? 'ซิงค์ชีต' : 'Google Sheets'}
               </span>
               <span
                 className={`w-2 h-2 rounded-full ${

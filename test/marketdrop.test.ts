@@ -237,3 +237,88 @@ describe('3. Google Sheets Integration & Column Mapping Tests', () => {
     expect(csv).toContain('หมูบด 1 กก.');
   });
 });
+
+describe('4. Market Shopping Aggregator & Category Detection Tests', () => {
+  it('should detect category for Thai fresh market goods', async () => {
+    const { detectCategory } = await import('../src/lib/shopping-aggregator');
+    expect(detectCategory('หมูบดอนามัย')).toBe('meat');
+    expect(detectCategory('สันคอหมู')).toBe('meat');
+    expect(detectCategory('อกไก่สด')).toBe('meat');
+    expect(detectCategory('ปลากะพง')).toBe('meat');
+
+    expect(detectCategory('ผักบุ้งจีน')).toBe('veg');
+    expect(detectCategory('คะน้าฮ่องกง')).toBe('veg');
+    expect(detectCategory('แตงกวา')).toBe('veg');
+
+    expect(detectCategory('ไข่ไก่สดเบอร์ 1')).toBe('egg_dairy');
+    expect(detectCategory('นมสดพาสเจอร์ไรส์')).toBe('egg_dairy');
+
+    expect(detectCategory('พริกขี้หนูสวน')).toBe('spice');
+    expect(detectCategory('กระเทียมไทย')).toBe('spice');
+    expect(detectCategory('มะนาวแป้น')).toBe('spice');
+
+    expect(detectCategory('น้ำมันพืช')).toBe('dry');
+  });
+
+  it('should consolidate identical items from different houses and maintain allocation breakdown', async () => {
+    const { aggregateShoppingList } = await import('../src/lib/shopping-aggregator');
+
+    const mockOrders: Order[] = [
+      {
+        id: 'ord-1',
+        stopNumber: 1,
+        houseNumber: '12/1',
+        soi: 'ซอย 1',
+        customerName: 'บ้าน 1',
+        phone: '',
+        items: [
+          { id: 'i1', name: 'หมูบด', quantity: 2, unit: 'กก.' },
+          { id: 'i2', name: 'ผักบุ้ง', quantity: 3, unit: 'กำ' }
+        ],
+        totalAmount: 200,
+        paymentStatus: 'PAID',
+        collectedAmount: 200,
+        paymentMethod: 'TRANSFER',
+        deliveryStatus: 'PENDING',
+        deliveredAt: null,
+        notes: '',
+        createdAt: '',
+        updatedAt: ''
+      },
+      {
+        id: 'ord-2',
+        stopNumber: 2,
+        houseNumber: '45/10',
+        soi: 'ซอย 2',
+        customerName: 'บ้าน 2',
+        phone: '',
+        items: [
+          { id: 'i3', name: 'หมูบด', quantity: 3, unit: 'กก.' }
+        ],
+        totalAmount: 300,
+        paymentStatus: 'COD',
+        collectedAmount: 0,
+        paymentMethod: null,
+        deliveryStatus: 'PENDING',
+        deliveredAt: null,
+        notes: '',
+        createdAt: '',
+        updatedAt: ''
+      }
+    ];
+
+    const shoppingList = aggregateShoppingList(mockOrders);
+    // หมูบด should be aggregated to 2 + 3 = 5 กก.
+    const pork = shoppingList.find(i => i.name === 'หมูบด');
+    expect(pork).toBeDefined();
+    expect(pork?.totalQuantity).toBe(5);
+    expect(pork?.unit).toBe('กก.');
+    expect(pork?.allocations.length).toBe(2);
+    expect(pork?.allocations[0].houseNumber).toBe('12/1');
+    expect(pork?.allocations[1].houseNumber).toBe('45/10');
+
+    // ผักบุ้ง should have 3 กำ
+    const morningGlory = shoppingList.find(i => i.name === 'ผักบุ้ง');
+    expect(morningGlory?.totalQuantity).toBe(3);
+  });
+});
