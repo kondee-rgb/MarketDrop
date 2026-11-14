@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { TripPlanner } from './TripPlanner';
+import { MoneySplitBar, ProfitTrendChart, TopItemBars } from './ProfitCharts';
 import {
   TrendingUp,
   DollarSign,
@@ -48,8 +49,7 @@ import {
   clearProfitHistory,
   toLocalDateStr,
   AnalyticsPeriod,
-  PeriodProfitAnalytics,
-  DailyTrendPoint
+  PeriodProfitAnalytics
 } from '@/lib/historical-profit';
 
 interface ProfitViewProps {
@@ -155,10 +155,19 @@ export function ProfitView({
     customDate
   );
 
-  const maxAbsTrendProfit = Math.max(1, ...periodAnalytics.dailyTrends.map(d => Math.abs(d.netProfit)));
-  const bestDay = periodAnalytics.dailyTrends.reduce<DailyTrendPoint | null>(
-    (best, d) => (!best || d.netProfit > best.netProfit ? d : best),
-    null
+  // "today" has a single day, so the chart shows the last week for context
+  // Today's stored snapshot is written after render, so use the live numbers for today's bar
+  const todayStr = toLocalDateStr();
+  const trendData = (selectedPeriod === 'today' ? getProfitAnalyticsByPeriod('7days').dailyTrends : periodAnalytics.dailyTrends).map(d =>
+    d.date === todayStr
+      ? {
+          ...d,
+          revenue: profitSummary.totalRevenue,
+          netProfit: profitSummary.netProfit,
+          orders: profitSummary.totalOrders,
+          marginPercent: profitSummary.netMarginPercent
+        }
+      : d
   );
 
   // Handle saving edited item cost/price
@@ -407,13 +416,12 @@ export function ProfitView({
           </div>
         )}
 
-        {/* Gross Profit Callout */}
-        <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50/80 px-3.5 py-2 rounded-xl">
-          <span>กำไรขั้นต้นจากของสด (ก่อนหักน้ำมัน):</span>
-          <strong className="text-emerald-800 font-bold">
-            ฿{(selectedPeriod === 'today' ? profitSummary.grossProfit : periodAnalytics.grossProfit).toLocaleString()} ({selectedPeriod === 'today' ? profitSummary.grossMarginPercent : periodAnalytics.grossMarginPercent}%)
-          </strong>
-        </div>
+        {/* Where the money went */}
+        <MoneySplitBar
+          revenue={selectedPeriod === 'today' ? profitSummary.totalRevenue : periodAnalytics.totalRevenue}
+          cost={selectedPeriod === 'today' ? profitSummary.totalProduceCost : periodAnalytics.totalProduceCost}
+          travel={selectedPeriod === 'today' ? profitSummary.totalTransportExpense : periodAnalytics.totalExpenses - periodAnalytics.totalProduceCost}
+        />
       </div>
 
       {/* Collection & Insights Card (live, today) */}
@@ -472,18 +480,7 @@ export function ProfitView({
                 <Trophy className="w-3.5 h-3.5 text-amber-500" />
                 สินค้าทำกำไรสูงสุด
               </p>
-              {topItems.map((it, i) => (
-                <div key={it.name} className="flex items-center justify-between text-xs bg-slate-50 rounded-xl px-3 py-2">
-                  <span className="text-slate-700">
-                    <span className="mr-1.5">{['🥇', '🥈', '🥉'][i]}</span>
-                    {it.name}
-                    <span className="text-slate-400"> · {it.orderCount} บ้าน</span>
-                  </span>
-                  <strong className={`tabular-nums ${it.profit < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                    ฿{it.profit.toLocaleString()} <span className="font-normal text-slate-400">({it.marginPercent}%)</span>
-                  </strong>
-                </div>
-              ))}
+              <TopItemBars items={topItems} />
             </div>
           )}
         </div>
@@ -498,10 +495,10 @@ export function ProfitView({
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 font-display">
-                แนวโน้มกำไรรายวัน (Daily Profit Trends)
+                กำไรรายวัน
               </h3>
               <p className="text-[11px] text-slate-500">
-                ประวัติยอดขายและกำไรสุทธิย้อนหลัง
+                {selectedPeriod === 'today' ? '7 วันล่าสุด · แตะแท่งเพื่อดูรายละเอียด' : 'แตะแท่งเพื่อดูรายละเอียดแต่ละวัน'}
               </p>
             </div>
           </div>
@@ -521,48 +518,7 @@ export function ProfitView({
           )}
         </div>
 
-        {periodAnalytics.dailyTrends.length === 0 ? (
-          <div className="p-6 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-            ยังไม่มีประวัติกำไรในช่วงเวลาที่เลือก ระบบจะบันทึกอัตโนมัติในแต่ละวัน
-          </div>
-        ) : (
-          <div className="space-y-2 pt-1">
-            {periodAnalytics.dailyTrends.map(day => (
-              <div
-                key={day.date}
-                className="p-3 rounded-2xl bg-slate-50 flex items-center justify-between gap-3 text-xs"
-              >
-                <div className="w-24 font-bold text-slate-700 shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    <span>{day.displayDate}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-normal pl-5">
-                    {day.orders} ออเดอร์
-                  </p>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="text-slate-500">ขาย: ฿{day.revenue.toLocaleString()}</span>
-                    <span className={`font-bold tabular-nums ${day.netProfit < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                      {bestDay?.date === day.date && periodAnalytics.dailyTrends.length > 1 ? '🏆 ' : ''}
-                      กำไร: ฿{day.netProfit.toLocaleString()} ({day.marginPercent}%)
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden flex">
-                    <div
-                      className={`animate-grow h-2 rounded-full ${day.netProfit < 0 ? 'bg-rose-400' : 'bg-emerald-500'}`}
-                      style={{
-                        width: `${Math.max(3, (Math.abs(day.netProfit) / maxAbsTrendProfit) * 100)}%`
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <ProfitTrendChart data={trendData} />
       </div>
 
       {/* Trip & Fuel Card */}
