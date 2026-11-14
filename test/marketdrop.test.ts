@@ -1446,3 +1446,25 @@ describe('22. Daily profit counts only that day\'s orders', () => {
     h.clearProfitHistory();
   });
 });
+
+describe('23. PromptPay QR payload', () => {
+  it('uses CRC-16/CCITT-FALSE and builds a valid EMVCo payload with the amount', async () => {
+    const { crc16, buildPromptPayPayload, classifyPromptPayId, maskPromptPayId } = await import('../src/lib/promptpay');
+    expect(crc16('123456789')).toBe('29B1'); // standard check value
+
+    const p = buildPromptPayPayload('081-234-5678', 320);
+    expect(p.startsWith('000201010212')).toBe(true); // one-time QR with amount
+    expect(p).toContain('29370016A000000677010111011300668123456785802TH5303764');
+    expect(p).toContain('5406320.00');
+    expect(p.slice(-8, -4)).toBe('6304');
+    expect(p.slice(-4)).toBe(crc16(p.slice(0, -4)));
+
+    const id = buildPromptPayPayload('1-2345-67890-12-3');
+    expect(id).toContain('0213123456789012'); // national ID under sub-tag 02
+    expect(id.startsWith('000201010211')).toBe(true); // no amount → reusable QR
+
+    expect(classifyPromptPayId('12345')).toBeNull();
+    expect(() => buildPromptPayPayload('abc', 10)).toThrow();
+    expect(maskPromptPayId('0812345678')).toBe('081-xxx-5678');
+  });
+});

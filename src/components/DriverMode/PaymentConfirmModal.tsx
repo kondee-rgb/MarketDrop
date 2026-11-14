@@ -5,6 +5,7 @@ import { X, CheckCircle, Banknote, QrCode, AlertTriangle, Clock, ShieldCheck, Sc
 import confetti from 'canvas-confetti';
 import { Order, PaymentMethod } from '@/types/order';
 import { compressImageFile } from '@/lib/image';
+import { PromptPayQrModal } from './PromptPayQrModal';
 import { evaluateSlip, SlipData, SlipEvaluation } from '@/lib/slip-check';
 
 type SlipState =
@@ -36,6 +37,7 @@ export function PaymentConfirmModal({
   usedSlipRefs = []
 }: PaymentConfirmModalProps) {
   const [slip, setSlip] = useState<SlipState>({ status: 'idle' });
+  const [showQr, setShowQr] = useState(false);
   const slipInputRef = useRef<HTMLInputElement>(null);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('CASH');
   const [collectedAmount, setCollectedAmount] = useState<number>(0);
@@ -315,6 +317,17 @@ export function PaymentConfirmModal({
             </div>
           )}
 
+          {/* Show a PromptPay QR with the bill amount */}
+          {selectedMethod === 'QR_SCAN' && (
+            <button
+              type="button"
+              onClick={() => setShowQr(true)}
+              className="w-full py-3 rounded-2xl bg-white ring-1 ring-slate-200 text-slate-800 text-sm font-semibold flex items-center justify-center gap-2"
+            >
+              <QrCode className="w-4 h-4" aria-hidden="true" /> แสดง QR พร้อมเพย์ ฿{order.totalAmount.toLocaleString()}
+            </button>
+          )}
+
           {/* Slip OCR Check */}
           {showSlipCheck && (
             <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
@@ -402,6 +415,13 @@ export function PaymentConfirmModal({
             </button>
           </div>
         </form>
+
+        <PromptPayQrModal
+          isOpen={showQr}
+          onClose={() => setShowQr(false)}
+          amount={order.totalAmount}
+          title={`${order.houseNumber} · ${order.customerName}`}
+        />
       </div>
     </div>
   );

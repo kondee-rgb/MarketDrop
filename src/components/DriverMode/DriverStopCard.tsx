@@ -11,11 +11,13 @@ import {
   ArrowRight,
   ShieldCheck,
   RotateCcw,
-  Bell
+  Bell,
+  QrCode
 } from 'lucide-react';
 import { Order } from '@/types/order';
 import { getLocationById } from '@/lib/locations';
 import { DeliveryNotifyModal } from './DeliveryNotifyModal';
+import { PromptPayQrModal } from './PromptPayQrModal';
 
 interface DriverStopCardProps {
   order: Order;
@@ -30,6 +32,7 @@ export function DriverStopCard({
   onOpenConfirmModal,
   onRevertDelivery
 }: DriverStopCardProps) {
+  const [showQr, setShowQr] = useState(false);
   const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
   const isDelivered = order.deliveryStatus === 'DELIVERED';
   const isPaid = order.paymentStatus === 'PAID';
@@ -260,6 +263,17 @@ export function DriverStopCard({
               </button>
             </div>
           ) : (
+            <div className="space-y-2">
+            {!isPaid && (order.totalAmount || 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowQr(true)}
+                className="w-full py-3 px-4 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 bg-white ring-1 ring-slate-200 text-slate-800"
+              >
+                <QrCode className="w-4 h-4" aria-hidden="true" />
+                QR พร้อมเพย์ ฿{(order.totalAmount || 0).toLocaleString()}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => onOpenConfirmModal(order)}
@@ -269,12 +283,20 @@ export function DriverStopCard({
                   : 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-200'
               }`}
             >
-              <span>{isPaid ? '✓ บันทึกว่าส่งของแล้ว' : '💰 ยืนยันการเก็บเงิน & บันทึกส่ง'}</span>
+              <span>{isPaid ? '✓ บันทึกว่าส่งของแล้ว' : 'ยืนยันรับเงิน & บันทึกส่ง'}</span>
               <ArrowRight className="w-5 h-5" />
             </button>
+            </div>
           )}
         </div>
       </div>
+
+      <PromptPayQrModal
+        isOpen={showQr}
+        onClose={() => setShowQr(false)}
+        amount={order.totalAmount || 0}
+        title={`${order.houseNumber} · ${order.customerName}`}
+      />
 
       {/* Customer Pre-Arrival Alert Modal */}
       <DeliveryNotifyModal
