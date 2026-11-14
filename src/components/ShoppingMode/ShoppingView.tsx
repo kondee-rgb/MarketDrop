@@ -73,17 +73,17 @@ export function ShoppingView({
   return (
     <div className="space-y-4 max-w-2xl mx-auto pb-12">
       {/* Top Banner: Shopping Status Bar */}
-      <div className="bg-slate-900 text-white rounded-3xl p-4 sm:p-5 shadow-xl border border-slate-800">
+      <div className="bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/60 text-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs border border-emerald-100/90">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center border border-emerald-200 shadow-xs">
               <ShoppingCart className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-black font-display tracking-tight text-white">
+              <h2 className="text-lg sm:text-xl font-bold font-display tracking-tight text-slate-800">
                 ของที่ต้องซื้อจากตลาด
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-500">
                 รวมของสดจากทุกบ้านเพื่อเหมาซื้อในตลาดสด
               </p>
             </div>
@@ -92,22 +92,22 @@ export function ShoppingView({
           <button
             type="button"
             onClick={onOpenPhotoModal}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl font-black text-xs shadow-md shadow-emerald-500/30 active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded-2xl font-bold text-xs shadow-xs border border-emerald-300 active:scale-95 transition-all"
           >
-            <Camera className="w-4 h-4" />
-            <span>ถ่ายโพย</span>
+            <Camera className="w-4 h-4 text-emerald-700" />
+            <span>📸 ถ่ายโพยซื้อของ</span>
           </button>
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-4 pt-3 border-t border-slate-800">
+        <div className="mt-4 pt-3 border-t border-emerald-100/80">
           <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="text-slate-400">ความคืบหน้าการซื้อของ</span>
-            <span className="font-bold text-emerald-400 font-mono">
+            <span className="text-slate-500 font-medium">ความคืบหน้าการซื้อของ</span>
+            <span className="font-bold text-emerald-800">
               ซื้อแล้ว {boughtItems}/{totalItems} รายการ ({percentComplete}%)
             </span>
           </div>
-          <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden border border-slate-700">
+          <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200/80">
             <div
               className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-300"
               style={{ width: `${percentComplete}%` }}
@@ -392,7 +392,7 @@ export function ShoppingView({
         <button
           type="button"
           onClick={onSwitchToDelivery}
-          className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-base shadow-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all font-display"
+          className="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl font-bold text-base shadow-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all font-display"
         >
           <span>ซื้อของครบแล้ว ➔ สลับไปแท็บส่งของ (ที่ต้องส่ง) 🛵</span>
           <ArrowRight className="w-5 h-5 text-emerald-400" />

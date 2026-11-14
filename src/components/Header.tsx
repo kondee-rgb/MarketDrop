@@ -46,44 +46,44 @@ export function Header({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-slate-900 text-white shadow-md border-b border-slate-800">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md text-slate-800 shadow-xs border-b border-emerald-100/80">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5">
         <div className="flex items-center justify-between gap-2">
           {/* Logo & Brand */}
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-950/50 flex-shrink-0">
-              <Truck className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-xs shadow-emerald-200 flex-shrink-0">
+              <Truck className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-lg sm:text-xl tracking-tight text-white font-display">
-                  Market<span className="text-emerald-400">Drop</span>
+                <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-800 font-display">
+                  Market<span className="text-emerald-600">Drop</span>
                 </span>
-                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-semibold px-1.5 py-0.5 rounded border border-emerald-500/30">
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
                   MOBILE
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block truncate">
+              <p className="text-[11px] text-slate-500 hidden sm:block truncate">
                 ระบบของสด: ตลาด ➔ ซื้อ ➔ ส่งหน้าบ้าน
               </p>
             </div>
           </div>
 
           {/* Desktop/Tablet 3 Main Tabs: ของที่ต้องซื้อ vs ที่ต้องส่ง vs จัดการออเดอร์ */}
-          <div className="hidden md:flex bg-slate-800 p-1 rounded-2xl border border-slate-700/80 shadow-inner">
+          <div className="hidden md:flex bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 shadow-xs">
             {/* Tab 1: ของที่ต้องซื้อ */}
             <button
               onClick={() => setActiveTab('shopping')}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                 activeTab === 'shopping'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                  ? 'bg-white text-emerald-800 shadow-xs font-bold border border-emerald-100'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <ShoppingCart className="w-4 h-4" />
+              <ShoppingCart className="w-4 h-4 text-emerald-600" />
               <span>🛒 ของที่ต้องซื้อ</span>
               {pendingShoppingCount > 0 && (
-                <span className="ml-1 bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                <span className="ml-1 bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
                   {pendingShoppingCount}
                 </span>
               )}
@@ -94,14 +94,14 @@ export function Header({
               onClick={() => setActiveTab('delivery')}
               className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                 activeTab === 'delivery'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                  ? 'bg-white text-emerald-800 shadow-xs font-bold border border-emerald-100'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <Truck className="w-4 h-4" />
+              <Truck className="w-4 h-4 text-teal-600" />
               <span>🛵 ที่ต้องส่ง</span>
               {pendingDeliveriesCount > 0 && (
-                <span className="ml-1 bg-amber-500 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">
+                <span className="ml-1 bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
                   {pendingDeliveriesCount}
                 </span>
               )}
@@ -112,11 +112,11 @@ export function Header({
               onClick={() => setActiveTab('admin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                 activeTab === 'admin'
-                  ? 'bg-emerald-500 text-slate-950 shadow-md font-bold'
-                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                  ? 'bg-white text-emerald-800 shadow-xs font-bold border border-emerald-100'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
               }`}
             >
-              <Package className="w-4 h-4" />
+              <Package className="w-4 h-4 text-slate-500" />
               <span>จัดการออเดอร์</span>
             </button>
           </div>
@@ -125,7 +125,7 @@ export function Header({
           <div className="flex items-center gap-2">
             <button
               onClick={onOpenPhotoModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-950/40 active:scale-95 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
             >
               <Camera className="w-4 h-4" />
               <span className="hidden sm:inline">ถ่ายรูป / คีย์</span>
@@ -137,23 +137,23 @@ export function Header({
               title="ตั้งค่าและซิงค์ Google Sheets"
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
                 syncStatus === 'synced'
-                  ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300 hover:bg-emerald-900/60'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100/80'
                   : syncStatus === 'syncing'
-                  ? 'bg-amber-950/60 border-amber-500/40 text-amber-300 hover:bg-amber-900/60'
-                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100/80'
+                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
               }`}
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
               <span className="hidden sm:inline">
                 {syncStatus === 'synced' ? 'ซิงค์ชีต' : 'Google Sheets'}
               </span>
               <span
                 className={`w-2 h-2 rounded-full ${
                   syncStatus === 'synced'
-                    ? 'bg-emerald-400 animate-pulse-dot'
+                    ? 'bg-emerald-500 animate-pulse-dot'
                     : syncStatus === 'syncing'
-                    ? 'bg-amber-400 animate-spin'
-                    : 'bg-slate-500'
+                    ? 'bg-amber-500 animate-spin'
+                    : 'bg-slate-400'
                 }`}
               />
             </button>
@@ -162,7 +162,7 @@ export function Header({
             <button
               onClick={onResetSampleData}
               title="รีเซ็ตข้อมูลตัวอย่าง"
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
             </button>

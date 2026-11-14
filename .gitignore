@@ -35,9 +35,11 @@ yarn-error.log*
 
 # vercel
 .vercel
+cloudflared.exe
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
 .vercel
+cloudflared.exe

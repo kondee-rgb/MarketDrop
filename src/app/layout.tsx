@@ -22,7 +22,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#0f172a'
+  themeColor: '#f4fbf7'
 };
 
 export default function RootLayout({
@@ -36,13 +36,13 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Anuphan:wght@300;400;500;600;700;800&family=Kanit:wght@500;600;700;800&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-touch-fullscreen" content="yes" />
       </head>
-      <body className="min-h-full flex flex-col bg-slate-100 text-slate-900 font-sans selection:bg-emerald-500 selection:text-white">
+      <body className="min-h-full flex flex-col bg-[#f8faf9] text-slate-800 font-sans selection:bg-emerald-200 selection:text-emerald-950">
         {children}
         <script
           dangerouslySetInnerHTML={{

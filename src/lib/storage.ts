@@ -1,6 +1,5 @@
 import { Order, GoogleSheetsConfig } from '@/types/order';
 import { INITIAL_SAMPLE_ORDERS } from './sample-data';
-import { sortOrders } from './natural-sort';
 
 const ORDERS_KEY = 'marketdrop_orders_v1';
 const SHEETS_CONFIG_KEY = 'marketdrop_sheets_config_v1';
@@ -13,6 +12,9 @@ export const DEFAULT_SHEETS_CONFIG: GoogleSheetsConfig = {
   lastSyncTime: null
 };
 
+/**
+ * โหลดออเดอร์จาก localStorage โดยเริ่มต้นด้วยรายการว่างเปล่า (Empty State) ไม่ใส่ dummy orders
+ */
 export function loadStoredOrders(): Order[] {
   if (typeof window === 'undefined') {
     return INITIAL_SAMPLE_ORDERS;
@@ -21,16 +23,14 @@ export function loadStoredOrders(): Order[] {
   try {
     const raw = localStorage.getItem(ORDERS_KEY);
     if (!raw) {
-      // โหลดข้อมูลตัวอย่างเริ่มต้น
-      const sorted = sortOrders(INITIAL_SAMPLE_ORDERS, 'NATURAL_HOUSE', 'ASC');
-      localStorage.setItem(ORDERS_KEY, JSON.stringify(sorted));
-      return sorted;
+      // เริ่มต้นด้วยรายการว่าง ไม่ยัดข้อมูล mock
+      return [];
     }
-    const parsed: Order[] = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SAMPLE_ORDERS;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as Order[]) : [];
   } catch (err) {
     console.error('Failed to load orders from localStorage:', err);
-    return INITIAL_SAMPLE_ORDERS;
+    return [];
   }
 }
 
@@ -41,6 +41,16 @@ export function saveStoredOrders(orders: Order[]): void {
     localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
   } catch (err) {
     console.error('Failed to save orders to localStorage:', err);
+  }
+}
+
+export function clearStoredOrders(): void {
+  if (typeof window === 'undefined') return;
+
+  try {
+    localStorage.setItem(ORDERS_KEY, JSON.stringify([]));
+  } catch (err) {
+    console.error('Failed to clear stored orders:', err);
   }
 }
 

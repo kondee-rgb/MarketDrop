@@ -275,19 +275,19 @@ export default function MarketDropApp() {
 
   if (!isMounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 text-white">
+      <div className="min-h-screen flex items-center justify-center bg-[#f8faf9] text-slate-800">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500 animate-pulse flex items-center justify-center text-slate-950 font-black text-xl">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 border border-emerald-200 animate-pulse flex items-center justify-center font-bold text-xl">
             🛵
           </div>
-          <p className="text-sm font-bold text-slate-300">กำลังโหลด MarketDrop...</p>
+          <p className="text-sm font-bold text-slate-600">กำลังโหลด MarketDrop...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900 font-sans pb-20 md:pb-6">
+    <div className="min-h-screen flex flex-col bg-[#f8faf9] text-slate-800 font-sans pb-20 md:pb-6">
       {/* App Header */}
       <Header
         activeTab={activeTab}
@@ -325,6 +325,7 @@ export default function MarketDropApp() {
             onToggleItemCheck={handleToggleItemCheck}
             onConfirmDelivery={handleConfirmDelivery}
             onRevertDelivery={handleRevertDelivery}
+            onOpenPhotoModal={() => setIsPhotoModalOpen(true)}
           />
         )}
 

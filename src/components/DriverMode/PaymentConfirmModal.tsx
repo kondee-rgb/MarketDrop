@@ -94,26 +94,26 @@ export function PaymentConfirmModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
-        {/* Header */}
-        <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-xl border border-emerald-100 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
+        {/* Header - Pastel */}
+        <div className="px-5 py-4 bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/70 border-b border-emerald-100 text-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="w-8 h-8 rounded-xl bg-emerald-500 text-slate-950 flex items-center justify-center font-black text-sm">
+            <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center font-bold text-sm">
               #{order.stopNumber}
             </span>
             <div>
-              <h3 className="font-extrabold text-base sm:text-lg font-display">
+              <h3 className="font-bold text-base sm:text-lg font-display text-slate-800">
                 ยืนยันการส่งและบันทึกเงิน
               </h3>
-              <p className="text-xs text-slate-400">
-                บ้านเลขที่ <span className="text-white font-bold">{order.houseNumber}</span> ({order.soi})
+              <p className="text-xs text-slate-500">
+                บ้านเลขที่ <span className="text-emerald-900 font-bold">{order.houseNumber}</span> ({order.soi})
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
           >
             <X className="w-5 h-5" />
           </button>

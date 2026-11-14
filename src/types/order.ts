@@ -17,6 +17,8 @@ export interface Order {
   stopNumber: number; // ลำดับส่ง 1, 2, 3...
   houseNumber: string; // เช่น "12/1", "45/10", "99/2"
   soi: string; // เช่น "ซอย 3", "ซอยมิตรภาพ 5", "หมู่บ้านพฤกษา"
+  locationId?: string; // id โครงการ/สถานที่จริง เช่น 'ivy-river', 'cher-suksawat', 'thanasin'
+  building?: string; // ตึก หรือ รูปแบบบ้าน เช่น 'ตึก A', 'ตึก D', 'บ้านเดี่ยว', 'ทาวน์โฮม'
   customerName: string; // เช่น "คุณสมชาย", "พี่นก"
   phone: string; // เช่น "081-234-5678"
   items: OrderItem[];
@@ -37,6 +39,8 @@ export interface Order {
 export interface ParsedOrderDraft {
   houseNumber: string;
   soi: string;
+  locationId?: string;
+  building?: string;
   customerName: string;
   phone: string;
   items: OrderItem[];

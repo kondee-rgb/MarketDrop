@@ -1,4 +1,5 @@
 import { OrderItem, ParsedOrderDraft, PaymentStatus } from '@/types/order';
+import { detectLocationFromText } from './locations';
 
 /**
  * หน่วยสินค้าที่พบบ่อยในตลาดสด / สินค้าเกษตร
@@ -15,6 +16,7 @@ const UNIT_REGEX_PART = THAI_UNITS.join('|');
 
 /**
  * แยกข้อความออเดอร์ 1 ชุด ออกเป็นฟิลด์ต่างๆ
+ * STRICT RULE: ห้าม Hallucinate หรือเดาบ้านเลขที่, ตึก, หรือซอย หากไม่มีระบุในข้อความเด็ดขาด
  */
 export function parseSingleOrderText(text: string): ParsedOrderDraft {
   const lines = text
@@ -24,6 +26,8 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
 
   let houseNumber = '';
   let soi = '';
+  let building = '';
+  let locationId: string | undefined = undefined;
   let customerName = '';
   let phone = '';
   let totalAmount = 0;
@@ -31,8 +35,22 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
   let notes = '';
   const items: OrderItem[] = [];
 
+  // ตรวจจับสถานที่จริงจากข้อความก่อน (เช่น ไอวี่ริเวอร์, ธนศิลป์, เดอะแพลนท์, คอนโดพลัม)
+  const locDetected = detectLocationFromText(text);
+  if (locDetected.locationId) {
+    locationId = locDetected.locationId;
+    if (locDetected.building) {
+      building = locDetected.building;
+    }
+    if (locDetected.soi) {
+      soi = locDetected.soi;
+    }
+    if (locDetected.houseNumber && !houseNumber) {
+      houseNumber = locDetected.houseNumber;
+    }
+  }
+
   // ตรวจจับ Payment Status ทั่วทั้งข้อความ
-  const lowerText = text.toLowerCase();
   const isPaidPattern = /(?:โอนแล้ว|แนบสลิป|มีสลิป|จ่ายแล้ว|ชำระแล้ว|โอนเงินแล้ว|สแกนแล้ว|โอนเรียบร้อย)/i;
   const isCodPattern = /(?:เก็บปลายทาง|cod|เก็บเงินสด|จ่ายสด|เก็บเงินปลายทาง|เก็บหน้าบ้าน|รอจ่าย|ปลายทาง)/i;
 
@@ -46,10 +64,11 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
   const phoneRegex = /(?:โทร(?:\.|ศัพท์)?:?\s*)?(0[689]\d{1}[- ]?\d{3}[- ]?\d{4}|0[689]\d{8})/g;
   const phoneMatch = phoneRegex.exec(text);
   if (phoneMatch) {
-    phone = phoneMatch[1].replace(/[- ]/g, '');
-    // ฟอร์แมตเบอร์โทรเป็น 0xx-xxx-xxxx
-    if (phone.length === 10) {
-      phone = `${phone.slice(0, 3)}-${phone.slice(3, 6)}-${phone.slice(6)}`;
+    const rawDigits = phoneMatch[1].replace(/[- ]/g, '');
+    if (rawDigits.length === 10) {
+      phone = `${rawDigits.slice(0, 3)}-${rawDigits.slice(3, 6)}-${rawDigits.slice(6)}`;
+    } else {
+      phone = rawDigits;
     }
   }
 
@@ -57,13 +76,25 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
   const nameRegex = /(?:ชื่อ|ลูกค้า|คุณ|พี่|ป้า|น้า|ลุง|แม่|ช่าง|น้อง)\s*([ก-๙a-zA-Z]+(?:\s+[ก-๙a-zA-Z]+)?)/;
   for (const line of lines) {
     const nameMatch = line.match(nameRegex);
-    if (nameMatch && !nameMatch[1].match(/^(?:บาท|โล|กก|แผง|โอน|เก็บ|ส่ง)$/)) {
+    if (nameMatch && !nameMatch[1].match(/^(?:บาท|โล|กก|แผง|โอน|เก็บ|ส่ง|บ้าน|คอนโด)$/)) {
       customerName = nameMatch[0].trim();
       break;
     }
   }
 
-  // 3. วิเคราะห์ทีละบรรทัดเพื่อแยก ที่อยู่, สินค้า, ยอดเงิน, หมายเหตุ
+  // 3. ตรวจจับตึกเพิ่มเติมจากข้อความ (หากยังไม่มี)
+  if (!building) {
+    const buildingMatch = text.match(/(?:ตึก|อาคาร)\s*([A-Za-z0-9ก-ฮ]+)/i);
+    if (buildingMatch) {
+      building = `ตึก ${buildingMatch[1].toUpperCase()}`;
+    } else if (/(?:บ้านเดี่ยว)/.test(text)) {
+      building = 'บ้านเดี่ยว';
+    } else if (/(?:ทาวน์โฮม|ทาวน์เฮ้าส์)/.test(text)) {
+      building = 'ทาวน์โฮม';
+    }
+  }
+
+  // 4. วิเคราะห์ทีละบรรทัดเพื่อแยก ที่อยู่, สินค้า, ยอดเงิน, หมายเหตุ
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
@@ -72,34 +103,43 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
       continue;
     }
 
-    // ตรวจจับบ้านเลขที่และซอย
-    // รูปแบบ เช่น: "บ้าน 45/12 ซอย 3", "บ้านเลขที่ 12/4 มบ.พฤกษา", "99/2 ซอยมิตรภาพ 5", "15/8 ซ.4"
-    const houseRegex = /(?:บ้านเลขที่|บ้าน|เลขที่|ที่อยู่|ส่งที่)?\s*([0-9]{1,5}(?:\/[0-9]{1,4})?(?:[A-Za-zก-ฮ])?)\s*(.*)/;
-    const houseMatch = line.match(houseRegex);
+    // ตรวจจับบ้านเลขที่และซอยอย่างแม่นยำ (STRICT: ห้ามมั่วจากเศษส่วนหรือจำนวนสินค้า)
+    const explicitAddressPrefix = /(?:บ้านเลขที่|บ้าน|เลขที่|ห้อง|ส่งที่|ที่อยู่)\s*([0-9]{1,5}(?:\/[0-9]{1,4})?(?:[A-Za-zก-ฮ])?)\s*(.*)/i;
+    const slashAddressPattern = /(?:^|\s)([0-9]{1,5}\/[0-9]{1,4}(?:[A-Za-zก-ฮ])?)\b(?!\s*(?:กก|กิโล|โล|แผง|ถุง|ขวด|ชิ้น|บาท|ลูก|ฟอง|กำ|มัด))/i;
 
-    if (!houseNumber && houseMatch && houseMatch[1] && (line.includes('/') || /(?:บ้าน|เลขที่|ที่อยู่|ซอย|ซ\.|ม\.)/.test(line))) {
-      // ตรวจสอบว่าไม่ใช่บรรทัดราคาสินค้า เช่น "ไข่ 1/2 แผง" หรือวันที่
-      if (!/(?:แผง|กก|กิโล|โล|บาท)/.test(line) || /(?:บ้าน|เลขที่|ซอย|ซ\.|ม\.)/.test(line)) {
-        houseNumber = houseMatch[1];
-        const restOfAddress = houseMatch[2] || '';
+    const explicitMatch = line.match(explicitAddressPrefix);
+    const slashMatch = !explicitMatch ? line.match(slashAddressPattern) : null;
 
-        // แยกซอย / หมู่บ้าน จากข้อความที่เหลือ
-        const soiMatch = restOfAddress.match(/(?:(?:ซอย|ซ\.|หมู่บ้าน|มบ\.|ม\.|โครงการ|โซน)\s*[^,\n()]+)/);
-        if (soiMatch) {
+    if (!houseNumber && (explicitMatch || slashMatch)) {
+      const candidateNumber = explicitMatch ? explicitMatch[1] : (slashMatch ? slashMatch[1] : '');
+      const rest = explicitMatch ? explicitMatch[2] : line.replace(slashMatch?.[0] || '', '');
+
+      // ตรวจสอบความปลอดภัย: ไม่ใช่เศษส่วนสินค้า หรือวันที่ เช่น 14/11/2026
+      const isDate = /\d{1,2}\/\d{1,2}\/\d{2,4}/.test(line);
+      const isItemFraction = new RegExp(`[0-9]+\\/[0-9]+\\s*(${UNIT_REGEX_PART})`, 'i').test(line);
+
+      if (!isDate && !isItemFraction && candidateNumber) {
+        houseNumber = candidateNumber;
+
+        // แยกซอย ถ้ามีระบุคำว่า ซอย/ซ./มบ./หมู่บ้าน/โครงการ เท่านั้น (STRICT: ห้ามมั่วข้อความอื่นมาใส่ซอย)
+        const soiMatch = rest.match(/(?:(?:ซอย|ซ\.|หมู่บ้าน|มบ\.|ม\.|โครงการ)\s*[^,\n()]+)/);
+        if (soiMatch && !soi) {
           soi = soiMatch[0].trim();
-        } else if (restOfAddress.trim()) {
-          // หากไม่มีคำว่าซอย แต่นำหน้าด้วยข้อความอื่นหลังบ้านเลขที่
-          const cleanRest = restOfAddress.replace(phone || '', '').replace(customerName || '', '').trim();
-          if (cleanRest && !cleanRest.startsWith('-') && !cleanRest.includes('บาท')) {
-            soi = cleanRest;
-          }
         }
         continue;
       }
     }
 
+    // หากยังไม่มีซอย ตรวจหาบรรทัดที่ระบุซอยเดี่ยวๆ
+    if (!soi) {
+      const standaloneSoi = line.match(/(?:^|\s)(ซอย\s*[0-9]+(?:\/[0-9]+)?|ซ\.\s*[0-9]+(?:\/[0-9]+)?)/i);
+      if (standaloneSoi) {
+        soi = standaloneSoi[1].trim();
+      }
+    }
+
     // ตรวจจับยอดเงินรวม
-    // เช่น "ยอด 245 บาท", "รวม 380", "150 บาท", "ทั้งหมด 520.-", "ยอดรวม 450"
+    // เช่น "ยอด 245 บาท", "รวม 380", "ทั้งหมด 520.-", "ยอดรวม 450"
     const totalRegex = /(?:ยอดรวม|ยอด|รวมเงิน|รวม|ราคารวม|ราคา|ทั้งหมด|ค่าของ|บิลนี้)\s*(?:[:=])?\s*฿?\s*([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?)\s*(?:บาท|.-)?/i;
     const totalMatch = line.match(totalRegex);
     if (totalMatch && !line.includes('กก') && !line.includes('กิโล') && !line.includes('แพ็ค')) {
@@ -119,24 +159,20 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
 
     // ตรวจจับหมายเหตุการส่ง
     // เช่น "วางไว้ที่รั้วบ้าน", "แขวนไว้หน้าบ้าน", "โทรบอกก่อนถึง"
-    if (/(?:วางไว้|แขวน|ฝาก|โทรบอก|ไว้ที่|ประตู|รั้ว|โต๊ะ|หน้าบ้าน|ข้างบ้าน|ติดต่อไปที่)/.test(line)) {
+    if (/(?:วางไว้|แขวน|ฝาก|โทรบอก|ไว้ที่|ประตู|รั้ว|โต๊ะ|หน้าบ้าน|ข้างบ้าน|ติดต่อไปที่|นิติ)/.test(line)) {
       notes = notes ? `${notes} | ${line}` : line;
       continue;
     }
 
     // ตรวจจับรายการสินค้า
-    // รูปแบบสินค้าทั่วไป เช่น:
-    // "- หมูบด 1 กก."
-    // "ผักบุ้ง 2 กำ"
-    // "ไข่ไก่เบอร์ 2 1 แผง"
-    // "หมูสามชั้น 2 โล 240"
-    // "แตงกวา 500 กรัม"
-    // "มะนาว 1 ถุง"
-    // "น้ำมันพืช 1 ขวด"
     const cleanItemLine = line.replace(/^[-•*+–—]\s*/, '').trim();
 
-    // ข้ามบรรทัดเบอร์โทรศัพท์ หรือติดต่อ หรือชื่อลูกค้าเดี่ยวๆ
-    if (/(?:โทร(?:\.|ศัพท์|หา|บอก)?:?\s*0|เบอร์โทร|เบอร์ติดต่อ|0[689]\d{8})/.test(line) || (phone && line.includes(phone.replace(/-/g, '')))) {
+    // ข้ามบรรทัดเบอร์โทรศัพท์ หรือติดต่อ หรือชื่อลูกค้า
+    const hasPhonePattern = /(?:โทร(?:\.|ศัพท์|หา|บอก)?:?\s*0|เบอร์โทร|เบอร์ติดต่อ|0[689]\d{1}[- ]?\d{3}[- ]?\d{4}|0[689]\d{8})/.test(line);
+    const hasPhoneValue = !!(phone && (line.includes(phone) || line.replace(/[- ]/g, '').includes(phone.replace(/[- ]/g, ''))));
+    const isCustomerLine = !!(customerName && line.includes(customerName) && !new RegExp(`(${UNIT_REGEX_PART})`, 'i').test(line));
+
+    if (hasPhonePattern || hasPhoneValue || isCustomerLine) {
       continue;
     }
 
@@ -146,7 +182,6 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
     }
 
     // Regex สกัดสินค้า: [ชื่อสินค้า] [จำนวน] [หน่วย] [ราคา(ถ้ามี)]
-    // รองรับกรณีมีตัวเลขในชื่อสินค้า เช่น "ไข่ไก่เบอร์ 2 1 แผง"
     const itemWithUnitRegex = new RegExp(
       `^(.*?)(?:\\s+([0-9]+(?:\\.[0-9]+)?|[0-9]+\\/[0-9]+))?\\s+([0-9]+(?:\\.[0-9]+)?|[0-9]+\\/[0-9]+)\\s*(${UNIT_REGEX_PART})(?:\\s+([0-9]+(?:\\.[0-9]+)?)\\s*(?:บาท|.-)?)?$`,
       'i'
@@ -178,10 +213,9 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
 
     // รูปแบบสินค้าไม่มีหน่วยระบุ แต่มีจำนวน เช่น "ไข่ไก่ 2", "โค้ก 1"
     const itemNoUnitMatch = cleanItemLine.match(/^(.+?)\s+([0-9]+)\s*$/);
-    if (itemNoUnitMatch && !cleanItemLine.includes('บาท') && !cleanItemLine.includes('ซอย')) {
+    if (itemNoUnitMatch && !cleanItemLine.includes('บาท') && !cleanItemLine.includes('ซอย') && !cleanItemLine.includes('ตึก')) {
       const potentialQty = parseInt(itemNoUnitMatch[2], 10);
       const potentialName = itemNoUnitMatch[1].trim();
-      // ถ้าตัวเลขมากกว่า 100 หรือขึ้นต้นด้วย 0 หรือเป็นชื่อคน มักเป็นเบอร์โทร ไม่ใช่จำนวนสินค้าสด
       if (
         potentialQty <= 100 &&
         !itemNoUnitMatch[2].startsWith('0') &&
@@ -199,7 +233,7 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
     }
 
     // กรณีมีชื่อสินค้าเดี่ยวๆ ไม่มีตัวเลข (เช่น "พริกขี้หนู", "ขิง") ให้ถือเป็น 1 ถุง/ชุด
-    if (cleanItemLine.length > 1 && !line.includes('โทร') && !line.includes('บาท') && items.length > 0) {
+    if (cleanItemLine.length > 1 && !line.includes('โทร') && !line.includes('บาท') && !line.includes('ตึก') && items.length > 0) {
       items.push({
         id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         name: cleanItemLine,
@@ -218,14 +252,16 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
     }
   }
 
-  // หากไม่มีชื่อ ให้ใช้ "ลูกค้าบ้าน " + บ้านเลขที่
+  // หากไม่มีชื่อ ให้ใช้ "ลูกค้าบ้าน " + บ้านเลขที่ (เฉพาะเมื่อมีบ้านเลขที่จริงเท่านั้น ห้ามคิดเลขขึ้นมาเอง)
   if (!customerName) {
-    customerName = houseNumber ? `ลูกค้าบ้าน ${houseNumber}` : 'ลูกค้า (ไม่ระบุชื่อ)';
+    customerName = houseNumber ? `ลูกค้าบ้าน ${houseNumber}` : 'ลูกค้าทั่วไป';
   }
 
   return {
     houseNumber: houseNumber || '',
     soi: soi || '',
+    locationId: locationId || undefined,
+    building: building || undefined,
     customerName,
     phone,
     items,
@@ -253,10 +289,8 @@ export function parseBulkOrderText(text: string): ParsedOrderDraft[] {
 
   // หากไม่มีตัวแบ่งชัดเจน แต่มีคำว่า "ออเดอร์" หรือ "บ้าน" ซ้ำกันหลายบรรทัด
   if (chunks.length <= 1) {
-    // ลองแบ่งด้วย 2 บรรทัดว่าง
     const doubleNewlineChunks = trimmed.split(/\n\s*\n/);
     if (doubleNewlineChunks.length > 1) {
-      // ตรวจสอบว่าแต่ละ chunk มีลักษณะเป็นออเดอร์ (มีบ้านเลขที่ หรือรายการสินค้า)
       const validChunks = doubleNewlineChunks.filter(c => c.trim().length > 5);
       if (validChunks.length > 1) {
         chunks = validChunks;

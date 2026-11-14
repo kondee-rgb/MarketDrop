@@ -2,17 +2,16 @@
 
 @layer base {
   :root {
-    --font-anuphan: 'Anuphan', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    --font-kanit: 'Kanit', sans-serif;
+    --font-prompt: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   }
 
   body {
-    font-family: var(--font-anuphan);
+    font-family: var(--font-prompt);
     -webkit-tap-highlight-color: transparent;
   }
 
   h1, h2, h3, h4, .font-display {
-    font-family: var(--font-kanit);
+    font-family: var(--font-prompt);
   }
 }
 

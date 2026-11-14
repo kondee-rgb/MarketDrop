@@ -49,31 +49,31 @@ export function DriverStopCard({
     >
       {/* Top Banner: Stop Number & Status Pill */}
       <div
-        className={`px-4 sm:px-5 py-3 flex items-center justify-between text-white ${
+        className={`px-4 sm:px-5 py-3 flex items-center justify-between border-b ${
           isDelivered
-            ? 'bg-emerald-700'
+            ? 'bg-emerald-50 text-emerald-950 border-emerald-200'
             : isPaid
-            ? 'bg-slate-900'
-            : 'bg-gradient-to-r from-slate-900 via-amber-950 to-slate-900'
+            ? 'bg-slate-50 text-slate-800 border-slate-200'
+            : 'bg-amber-50/90 text-amber-950 border-amber-200'
         }`}
       >
         <div className="flex items-center gap-2">
-          <span className="bg-white text-slate-950 font-black text-xs sm:text-sm px-2.5 py-1 rounded-lg tracking-wider font-display">
+          <span className="bg-white text-slate-800 border border-slate-200/80 font-bold text-xs sm:text-sm px-2.5 py-1 rounded-xl tracking-wider font-display shadow-xs">
             STOP #{order.stopNumber}
           </span>
-          <span className="text-xs text-slate-300 font-medium">
+          <span className="text-xs text-slate-500 font-medium">
             {isDelivered ? '✓ ส่งสำเร็จแล้ว' : 'รอส่ง'}
           </span>
         </div>
 
         {/* Payment Tag */}
         {isPaid ? (
-          <div className="flex items-center gap-1.5 bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 px-3 py-1 rounded-full text-xs font-bold">
-            <ShieldCheck className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-1.5 bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1 rounded-full text-xs font-bold shadow-xs">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
             <span>โอนแล้ว (ไม่ต้องเก็บเงิน)</span>
           </div>
         ) : (
-          <div className="flex items-center gap-1 bg-amber-500 text-slate-950 px-3 py-1 rounded-full text-xs font-black shadow-sm">
+          <div className="flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 px-3 py-1 rounded-full text-xs font-bold shadow-xs">
             <span>💰 เก็บ COD: ฿{order.totalAmount}</span>
           </div>
         )}

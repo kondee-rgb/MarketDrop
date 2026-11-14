@@ -143,24 +143,24 @@ export function LinePasteModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="px-5 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl shadow-xl border border-emerald-100 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+        {/* Header - Pastel */}
+        <div className="px-5 py-4 bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/70 border-b border-emerald-100 text-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-white/20 rounded-xl">
-              <ClipboardList className="w-5 h-5" />
+            <div className="p-2 bg-emerald-100 text-emerald-800 rounded-2xl border border-emerald-200 shadow-xs">
+              <ClipboardList className="w-5 h-5 text-emerald-700" />
             </div>
             <div>
-              <h2 className="text-lg font-bold font-display">วางข้อความสั่งซื้อจาก LINE (Quick-Paste)</h2>
-              <p className="text-xs text-emerald-100">
+              <h2 className="text-lg font-bold font-display text-slate-800">วางข้อความสั่งซื้อจาก LINE (Quick-Paste)</h2>
+              <p className="text-xs text-slate-500">
                 ระบบ Heuristic + Regex อัจฉริยะ แกะบ้านเลขที่ รายการสินค้า และยอดเงินให้อัตโนมัติ
               </p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors"
           >
             <X className="w-5 h-5" />
           </button>

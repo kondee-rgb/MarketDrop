@@ -322,3 +322,219 @@ describe('4. Market Shopping Aggregator & Category Detection Tests', () => {
     expect(morningGlory?.totalQuantity).toBe(3);
   });
 });
+
+describe('5. Real Locations Directory & Helpers Tests', () => {
+  it('should verify all required real locations exist with correct zones and sub-options', async () => {
+    const { REAL_LOCATIONS, getLocationById } = await import('../src/lib/locations');
+
+    // 1. Ivy River
+    const ivy = getLocationById('ivy-river');
+    expect(ivy).toBeDefined();
+    expect(ivy?.zone).toBe('suksawat');
+    expect(ivy?.type).toBe('condo');
+    expect(ivy?.subOptions?.map(o => o.id)).toEqual(['A', 'D', 'C']);
+    expect(ivy?.subOptions?.find(o => o.id === 'A')?.prefix).toBe('51/');
+    expect(ivy?.subOptions?.find(o => o.id === 'D')?.prefix).toBe('57/');
+    expect(ivy?.subOptions?.find(o => o.id === 'C')?.prefix).toBe('53/');
+
+    // 2. Cher Suksawat
+    const cher = getLocationById('cher-suksawat');
+    expect(cher).toBeDefined();
+    expect(cher?.zone).toBe('suksawat');
+    expect(cher?.type).toBe('housing_estate');
+    expect(cher?.defaultPrefix).toContain('65/146');
+
+    // 3. Thanasin Ramintra
+    const thanasin = getLocationById('thanasin');
+    expect(thanasin).toBeDefined();
+    expect(thanasin?.zone).toBe('ramintra');
+    expect(thanasin?.type).toBe('housing_estate');
+    expect(thanasin?.defaultPrefix).toBe('800/');
+    expect(thanasin?.allowNewHouseNumbers).toBe(true);
+    expect(thanasin?.sois?.length).toBeGreaterThanOrEqual(10);
+    expect(thanasin?.sois).toContain('ซอย 1/1');
+    expect(thanasin?.sois).toContain('ซอย 4/2');
+
+    // 4. The Plant
+    const thePlant = getLocationById('the-plant');
+    expect(thePlant).toBeDefined();
+    expect(thePlant?.zone).toBe('ramintra');
+    expect(thePlant?.subOptions?.find(o => o.id === 'single')?.prefix).toBe('81/');
+    expect(thePlant?.subOptions?.find(o => o.id === 'townhome')?.prefix).toBe('79/');
+
+    // 5. Plum Condo
+    const plum = getLocationById('plum-condo');
+    expect(plum).toBeDefined();
+    expect(plum?.zone).toBe('ramintra');
+    expect(plum?.type).toBe('condo');
+    expect(plum?.subOptions?.map(o => o.id)).toEqual(['A', 'B', 'C']);
+
+    // 6. Custom
+    const custom = getLocationById('custom');
+    expect(custom).toBeDefined();
+    expect(custom?.zone).toBe('other');
+  });
+
+  it('should compute prefix for location correctly', async () => {
+    const { getPrefixForLocation } = await import('../src/lib/locations');
+
+    expect(getPrefixForLocation('ivy-river', 'A')).toBe('51/');
+    expect(getPrefixForLocation('ivy-river', 'ตึก D')).toBe('57/');
+    expect(getPrefixForLocation('ivy-river', 'C')).toBe('53/');
+    expect(getPrefixForLocation('the-plant', 'single')).toBe('81/');
+    expect(getPrefixForLocation('the-plant', 'ทาวน์โฮม')).toBe('79/');
+    expect(getPrefixForLocation('cher-suksawat')).toBe('65/146');
+    expect(getPrefixForLocation('thanasin')).toBe('800/');
+    expect(getPrefixForLocation('plum-condo', 'B')).toBe('');
+  });
+
+  it('should format full address cleanly for cards and drivers', async () => {
+    const { formatFullAddress } = await import('../src/lib/locations');
+
+    const addr1 = formatFullAddress({
+      locationId: 'ivy-river',
+      building: 'ตึก A',
+      houseNumber: '51/204'
+    });
+    expect(addr1).toBe('ไอวี่ริเวอร์ ตึก A 51/204');
+
+    const addr2 = formatFullAddress({
+      locationId: 'thanasin',
+      houseNumber: '800/15',
+      soi: 'ซอย 2/1'
+    });
+    expect(addr2).toBe('หมู่บ้านธนศิลป์ 800/15 ซอย 2/1');
+
+    const addr3 = formatFullAddress({
+      locationId: 'the-plant',
+      building: 'ทาวน์โฮม',
+      houseNumber: '79/33',
+      soi: 'ซอย 3'
+    });
+    expect(addr3).toBe('เดอะแพลนท์ ทาวน์โฮม 79/33 ซอย 3');
+  });
+
+  it('should detect real locations from Thai message text', async () => {
+    const { detectLocationFromText } = await import('../src/lib/locations');
+
+    const loc1 = detectLocationFromText('ส่งที่ไอวี่ริเวอร์ ตึก D 57/120 ครับ');
+    expect(loc1.locationId).toBe('ivy-river');
+    expect(loc1.building).toBe('ตึก D');
+    expect(loc1.houseNumber).toBe('57/120');
+
+    const loc2 = detectLocationFromText('บ้านธนศิลป์ ซอย 2/1 บ้านเลขที่ 800/44');
+    expect(loc2.locationId).toBe('thanasin');
+    expect(loc2.soi).toBe('ซอย 2/1');
+    expect(loc2.houseNumber).toBe('800/44');
+
+    const loc3 = detectLocationFromText('เดอะแพลนท์ ทาวน์โฮม 79/11');
+    expect(loc3.locationId).toBe('the-plant');
+    expect(loc3.building).toBe('ทาวน์โฮม');
+    expect(loc3.houseNumber).toBe('79/11');
+  });
+});
+
+describe('6. Frequent Contacts Directory Tests', () => {
+  it('should create, find, search, and delete frequent contacts', async () => {
+    const {
+      getFrequentContacts,
+      saveFrequentContact,
+      deleteFrequentContact,
+      searchFrequentContacts,
+      findFrequentContact
+    } = await import('../src/lib/contacts');
+
+    // Save contact
+    const created = saveFrequentContact({
+      name: 'คุณนก ไอวี่',
+      phone: '081-111-2233',
+      locationId: 'ivy-river',
+      building: 'ตึก A',
+      houseNumber: '51/104',
+      defaultNotes: 'ฝากนิติคอนโด',
+      type: 'customer'
+    });
+
+    expect(created.id).toBeDefined();
+    expect(created.name).toBe('คุณนก ไอวี่');
+    expect(created.locationId).toBe('ivy-river');
+
+    // Find contact by phone
+    const found = findFrequentContact({ phone: '0811112233' });
+    expect(found).toBeDefined();
+    expect(found?.name).toBe('คุณนก ไอวี่');
+
+    // Search contacts
+    const searchRes = searchFrequentContacts('นก');
+    expect(searchRes.length).toBeGreaterThanOrEqual(1);
+
+    // Delete contact
+    deleteFrequentContact(created.id);
+    const afterDelete = findFrequentContact({ phone: '0811112233' });
+    expect(afterDelete).toBeUndefined();
+  });
+});
+
+describe('7. Initial Sample Orders & Clean Storage State Tests', () => {
+  it('INITIAL_SAMPLE_ORDERS should be empty array', async () => {
+    const { INITIAL_SAMPLE_ORDERS } = await import('../src/lib/sample-data');
+    expect(INITIAL_SAMPLE_ORDERS).toBeDefined();
+    expect(INITIAL_SAMPLE_ORDERS.length).toBe(0);
+  });
+
+  it('loadStoredOrders should start empty without dummy orders', async () => {
+    const { loadStoredOrders } = await import('../src/lib/storage');
+    const orders = loadStoredOrders();
+    expect(Array.isArray(orders)).toBe(true);
+    expect(orders.length).toBe(0);
+  });
+});
+
+describe('8. Strict Non-Hallucination LINE Parser Tests', () => {
+  it('should NOT invent house number, building, or soi when absent from text', () => {
+    const textWithoutAddress = `หมูบด 1 กก.
+คะน้า 2 กำ
+คุณสมชาย 081-234-5678
+ยอด 180 บาท โอนแล้ว`;
+
+    const parsed = parseSingleOrderText(textWithoutAddress);
+    expect(parsed.houseNumber).toBe('');
+    expect(parsed.soi).toBe('');
+    expect(parsed.building).toBeUndefined();
+    expect(parsed.customerName).toBe('คุณสมชาย');
+    expect(parsed.phone).toBe('081-234-5678');
+    expect(parsed.totalAmount).toBe(180);
+    expect(parsed.paymentStatus).toBe('PAID');
+    expect(parsed.items.length).toBe(2);
+  });
+
+  it('should NOT confuse item fractions like 1/2 กก. with house numbers', () => {
+    const textWithFractions = `แตงโม 1/2 ลูก
+เนื้อหมู 1/2 กก.
+รวม 120 บาท เก็บปลายทาง`;
+
+    const parsed = parseSingleOrderText(textWithFractions);
+    expect(parsed.houseNumber).toBe('');
+    expect(parsed.soi).toBe('');
+    expect(parsed.building).toBeUndefined();
+    expect(parsed.totalAmount).toBe(120);
+    expect(parsed.paymentStatus).toBe('COD');
+  });
+
+  it('should parse real location orders with accurate building and house number without hallucinating', () => {
+    const rawIvy = `ไอวี่ริเวอร์ ตึก D ห้อง 57/402
+คุณแพร 089-876-5432
+ไข่ไก่ 1 แผง
+กล้วยหอม 1 หวี
+ยอด 190 โอนแล้ว
+ฝากไว้ที่นิติบุคคล`;
+
+    const parsed = parseSingleOrderText(rawIvy);
+    expect(parsed.locationId).toBe('ivy-river');
+    expect(parsed.building).toBe('ตึก D');
+    expect(parsed.houseNumber).toBe('57/402');
+    expect(parsed.customerName).toBe('คุณแพร');
+    expect(parsed.paymentStatus).toBe('PAID');
+    expect(parsed.notes).toContain('นิติบุคคล');
+  });
+});

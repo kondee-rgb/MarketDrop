@@ -40,10 +40,10 @@ export function OrderCardAdmin({
         <div className="flex items-center gap-2">
           <div className="flex flex-col items-center">
             <span
-              className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm tracking-tight shadow-sm ${
+              className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold text-sm tracking-tight shadow-xs ${
                 isDelivered
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-slate-900 text-white'
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-slate-100 text-slate-800 border border-slate-300'
               }`}
             >
               #{order.stopNumber}
