@@ -16,7 +16,9 @@ import {
   Home,
   ShieldCheck,
   ChevronRight,
-  Package
+  Package,
+  Plus,
+  FileText
 } from 'lucide-react';
 import { Order, PaymentMethod } from '@/types/order';
 import { DriverStopCard } from './DriverStopCard';
@@ -35,6 +37,8 @@ interface DriverViewProps {
   ) => void;
   onRevertDelivery: (orderId: string) => void;
   onOpenPhotoModal?: () => void;
+  onOpenPasteModal?: () => void;
+  onOpenManualModal?: () => void;
 }
 
 export function DriverView({
@@ -42,7 +46,9 @@ export function DriverView({
   onToggleItemCheck,
   onConfirmDelivery,
   onRevertDelivery,
-  onOpenPhotoModal
+  onOpenPhotoModal,
+  onOpenPasteModal,
+  onOpenManualModal
 }: DriverViewProps) {
   // Sub-tab: 'manifest' (สรุปเส้นทาง & เลขที่บ้าน) vs 'cards' (คิวส่งทีละบ้าน)
   const [subTab, setSubTab] = useState<'manifest' | 'cards'>('manifest');
@@ -78,8 +84,6 @@ export function DriverView({
     .filter(o => o.paymentStatus === 'COD')
     .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
-  const totalCollected = deliveredOrders.reduce((sum, o) => sum + (o.collectedAmount || 0), 0);
-
   // Jump from Manifest to Cards view
   const handleJumpToCard = (orderId: string) => {
     setTargetCardId(orderId);
@@ -106,54 +110,81 @@ export function DriverView({
   };
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto pb-12">
-      {/* Driver Quick Status Dashboard */}
-      <div className="bg-gradient-to-br from-teal-50/90 via-white to-emerald-50/60 text-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs border border-teal-100/90">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-3.5 max-w-2xl mx-auto pb-12">
+      {/* Driver Quick Status & Quick Input Header - Clean Modern Styling */}
+      <div className="bg-white text-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-200/80">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-teal-100/80 text-teal-700 flex items-center justify-center border border-teal-200 shadow-xs">
-              <Truck className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 flex-shrink-0">
+              <Truck className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold font-display tracking-tight text-slate-800">
-                โหมดคนขับส่งของ (Driver Mode)
+              <h2 className="text-base sm:text-lg font-bold font-display tracking-tight text-slate-900 leading-tight">
+                ที่ต้องส่งวันนี้
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 mt-0.5">
                 เหลืออีก <strong className="text-amber-800 font-bold">{pendingOrders.length}</strong> หลัง • ส่งแล้ว {deliveredOrders.length}/{orders.length}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            {onOpenPhotoModal && (
-              <button
-                type="button"
-                onClick={onOpenPhotoModal}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-100 hover:bg-teal-200 text-teal-900 rounded-2xl font-bold text-xs shadow-xs border border-teal-300 active:scale-95 transition-all"
-              >
-                <Camera className="w-4 h-4 text-teal-700" />
-                <span>📸 สแกนออเดอร์ส่ง</span>
-              </button>
-            )}
-
-            <div className="text-right bg-amber-50/80 border border-amber-200/80 px-3 py-1.5 rounded-2xl">
-              <p className="text-[10px] text-amber-800 uppercase font-bold">COD รอเก็บ</p>
-              <p className="text-lg sm:text-xl font-bold text-amber-900 font-display">
-                ฿{totalCodPending.toLocaleString()}
-              </p>
-            </div>
+          {/* COD Pending Box */}
+          <div className="text-right bg-amber-50/80 border border-amber-200/90 px-3 py-1.5 rounded-2xl">
+            <p className="text-[10px] text-amber-800 uppercase font-bold">COD รอเก็บ</p>
+            <p className="text-base sm:text-lg font-black text-amber-950 font-display leading-tight">
+              ฿{totalCodPending.toLocaleString()}
+            </p>
           </div>
         </div>
 
+        {/* Quick Actions: Direct Input on Delivery Tab (LINE Paste, Manual Key, Photo Scan) */}
+        <div className="grid grid-cols-3 gap-2 mt-3.5 pt-3 border-t border-slate-100">
+          {onOpenPasteModal && (
+            <button
+              type="button"
+              onClick={onOpenPasteModal}
+              className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
+              title="ก็อปข้อความจาก LINE มาวางสกัดออเดอร์ทันที"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>วางแชท LINE</span>
+            </button>
+          )}
+
+          {onOpenManualModal && (
+            <button
+              type="button"
+              onClick={onOpenManualModal}
+              className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
+              title="พิมพ์เพิ่มบ้านเลขที่หรือลูกค้าใหม่ด้วยตัวเอง"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-600" />
+              <span>คีย์เอง</span>
+            </button>
+          )}
+
+          {onOpenPhotoModal && (
+            <button
+              type="button"
+              onClick={onOpenPhotoModal}
+              className="flex items-center justify-center gap-1.5 py-2 px-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
+              title="ถ่ายรูปโพยหรือรูปออเดอร์ให้ AI สแกน"
+            >
+              <Camera className="w-3.5 h-3.5 text-emerald-600" />
+              <span>สแกนรูป</span>
+            </button>
+          )}
+        </div>
+
         {/* Sub-tabs Selection Header */}
-        <div className="mt-4 pt-3 border-t border-teal-100/80">
-          <div className="grid grid-cols-2 gap-2 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/80">
+        <div className="mt-3 pt-3 border-t border-slate-100">
+          <div className="grid grid-cols-2 gap-1.5 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/60">
             <button
               type="button"
               onClick={() => setSubTab('manifest')}
               className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
                 subTab === 'manifest'
-                  ? 'bg-white text-emerald-900 shadow-xs border border-emerald-200'
+                  ? 'bg-white text-emerald-900 shadow-xs border border-slate-200/80'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -165,7 +196,7 @@ export function DriverView({
               onClick={() => setSubTab('cards')}
               className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
                 subTab === 'cards'
-                  ? 'bg-white text-teal-900 shadow-xs border border-teal-200'
+                  ? 'bg-white text-teal-900 shadow-xs border border-slate-200/80'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -176,13 +207,13 @@ export function DriverView({
         </div>
 
         {/* Filter Pills (Status: Pending, All, Delivered) */}
-        <div className="grid grid-cols-3 gap-2 mt-3">
+        <div className="grid grid-cols-3 gap-2 mt-2.5">
           <button
             onClick={() => setFilter('pending')}
-            className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               filter === 'pending'
-                ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-xs font-bold'
-                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                ? 'bg-amber-100/90 text-amber-900 border border-amber-300 shadow-xs font-bold'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/70'
             }`}
           >
             <Clock className="w-3.5 h-3.5 text-amber-700" />
@@ -191,10 +222,10 @@ export function DriverView({
 
           <button
             onClick={() => setFilter('all')}
-            className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               filter === 'all'
-                ? 'bg-teal-100 text-teal-900 border border-teal-300 shadow-xs font-bold'
-                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-xs font-bold'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/70'
             }`}
           >
             <span>ทั้งหมด ({orders.length})</span>
@@ -202,13 +233,13 @@ export function DriverView({
 
           <button
             onClick={() => setFilter('delivered')}
-            className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-1.5 px-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
               filter === 'delivered'
-                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-xs font-bold'
-                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                ? 'bg-teal-100 text-teal-900 border border-teal-300 shadow-xs font-bold'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/70'
             }`}
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-teal-700" />
             <span>ส่งแล้ว ({deliveredOrders.length})</span>
           </button>
         </div>
@@ -218,13 +249,13 @@ export function DriverView({
       {subTab === 'manifest' && (
         <div className="space-y-3 animate-in fade-in duration-200">
           {/* Location filter chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 scrollbar-none text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
             <button
               onClick={() => setSelectedLocationId('all')}
               className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all border ${
                 selectedLocationId === 'all'
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50'
               }`}
             >
               ทั้งหมด ({filteredByStatusOrders.length})
@@ -240,7 +271,7 @@ export function DriverView({
                   className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all border flex items-center gap-1 ${
                     isSel
                       ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                      : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50'
                   }`}
                 >
                   <span>{loc.type === 'condo' ? '🏢' : '🏡'}</span>
@@ -256,9 +287,9 @@ export function DriverView({
               <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-slate-800">ไม่มีรายการส่งของในเงื่อนไขนี้</h3>
-              <p className="text-xs text-slate-500">
-                เมื่อเพิ่มออเดอร์ หรือสแกนโพยส่ง รายการบ้านทั้งหมดจะถูกเรียงลำดับเส้นทางที่นี่
+              <h3 className="font-bold text-slate-800">ยังไม่มีรายการส่งของในระบบ</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                คุณสามารถกด <strong>"วางแชท LINE"</strong>, <strong>"คีย์เอง"</strong> หรือ <strong>"สแกนรูป"</strong> ด้านบนเพื่อเพิ่มออเดอร์ได้ทันที
               </p>
             </div>
           ) : (
@@ -271,10 +302,10 @@ export function DriverView({
                 return (
                   <div
                     key={order.id}
-                    className={`bg-white rounded-3xl border-2 transition-all overflow-hidden ${
+                    className={`bg-white rounded-3xl border transition-all overflow-hidden ${
                       isDelivered
-                        ? 'border-emerald-200 bg-emerald-50/20'
-                        : 'border-slate-200 shadow-xs hover:border-emerald-400'
+                        ? 'border-emerald-200 bg-emerald-50/15'
+                        : 'border-slate-200/80 shadow-xs hover:border-emerald-400'
                     }`}
                   >
                     {/* Manifest Card Header */}
@@ -399,7 +430,7 @@ export function DriverView({
                         <button
                           type="button"
                           onClick={() => handleJumpToCard(order.id)}
-                          className="w-full py-2 px-3 bg-slate-50 hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 border border-slate-200 hover:border-emerald-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
+                          className="w-full py-2 px-3 bg-slate-50 hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 border border-slate-200/80 hover:border-emerald-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
                         >
                           <span>🛵 เปิดการ์ดส่งของบ้านนี้ (ติ๊กของ / บันทึกส่ง)</span>
                           <ChevronRight className="w-4 h-4 text-emerald-600" />

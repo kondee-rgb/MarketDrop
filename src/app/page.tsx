@@ -9,6 +9,8 @@ import { ShoppingView } from '@/components/ShoppingMode/ShoppingView';
 import { PhotoToOrderModal } from '@/components/PhotoUpload/PhotoToOrderModal';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { SheetsSyncModal } from '@/components/GoogleSheets/SheetsSyncModal';
+import { LinePasteModal } from '@/components/OrderManager/LinePasteModal';
+import { ManualOrderModal } from '@/components/OrderManager/ManualOrderModal';
 import {
   GoogleSheetsConfig,
   MainTabType,
@@ -48,8 +50,13 @@ export default function MarketDropApp() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('ASC');
   const [sheetsConfig, setSheetsConfig] = useState<GoogleSheetsConfig>(loadSheetsConfig());
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline'>('synced');
+
+  // Modals
   const [isSheetsModalOpen, setIsSheetsModalOpen] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [isPasteModalOpen, setIsPasteModalOpen] = useState(false);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+
   const [syncResultMsg, setSyncResultMsg] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -269,6 +276,35 @@ export default function MarketDropApp() {
     }
   };
 
+  // Add orders from Line Paste Modal
+  const handleAddOrdersFromPaste = (newOrders: Order[]) => {
+    setOrders(prev => {
+      const combined = [...prev, ...newOrders];
+      return sortOrders(combined, sortMode, sortDirection);
+    });
+    if (sheetsConfig.autoSync) {
+      performSync([...orders, ...newOrders], true);
+    }
+  };
+
+  // Save order from Manual Order Modal
+  const handleSaveOrderManual = (orderToSave: Order) => {
+    setOrders(prev => {
+      const idx = prev.findIndex(o => o.id === orderToSave.id);
+      let updated: Order[];
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = orderToSave;
+      } else {
+        updated = [...prev, orderToSave];
+      }
+      return sortOrders(updated, sortMode, sortDirection);
+    });
+    if (sheetsConfig.autoSync) {
+      performSync([...orders, orderToSave], true);
+    }
+  };
+
   // Add shopping item from Photo Upload Modal
   const handleAddShoppingItemFromPhoto = (item: ShoppingItem) => {
     setManualShoppingItems(prev => [...prev, item]);
@@ -348,8 +384,8 @@ export default function MarketDropApp() {
 
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6">
-        {/* Route Summary Bar (visible on Delivery and Admin tabs) */}
-        {activeTab !== 'shopping' && <RouteSummary orders={orders} />}
+        {/* Route Summary Bar: แสดงเฉพาะในแท็บจัดการ (Admin) เท่านั้น ตามที่ผู้ใช้ระบุ */}
+        {activeTab === 'admin' && <RouteSummary orders={orders} />}
 
         {/* TAB 1: ของที่ต้องซื้อ (Market Shopping List) */}
         {activeTab === 'shopping' && (
@@ -374,6 +410,8 @@ export default function MarketDropApp() {
             onConfirmDelivery={handleConfirmDelivery}
             onRevertDelivery={handleRevertDelivery}
             onOpenPhotoModal={() => setIsPhotoModalOpen(true)}
+            onOpenPasteModal={() => setIsPasteModalOpen(true)}
+            onOpenManualModal={() => setIsManualModalOpen(true)}
           />
         )}
 
@@ -402,6 +440,22 @@ export default function MarketDropApp() {
           pendingDeliveryCount={pendingDeliveriesCount}
         />
       </div>
+
+      {/* LINE Paste Modal */}
+      <LinePasteModal
+        isOpen={isPasteModalOpen}
+        onClose={() => setIsPasteModalOpen(false)}
+        onAddOrders={handleAddOrdersFromPaste}
+        existingOrdersCount={orders.length}
+      />
+
+      {/* Manual Order Modal */}
+      <ManualOrderModal
+        isOpen={isManualModalOpen}
+        onClose={() => setIsManualModalOpen(false)}
+        onSaveOrder={handleSaveOrderManual}
+        existingOrdersCount={orders.length}
+      />
 
       {/* Photo to Order Modal */}
       <PhotoToOrderModal

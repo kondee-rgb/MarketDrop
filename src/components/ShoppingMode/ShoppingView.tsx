@@ -304,18 +304,18 @@ export function ShoppingView({
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto pb-14">
-      {/* Top Banner: Shopping Status Bar - Pastel Mint */}
-      <div className="bg-gradient-to-br from-emerald-50/90 via-white to-teal-50/60 text-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs border border-emerald-100/90">
+      {/* Top Banner: Shopping Status Bar - Clean Modern */}
+      <div className="bg-white text-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-200/80">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center border border-emerald-200 shadow-xs">
-              <ShoppingCart className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 flex-shrink-0">
+              <ShoppingCart className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
-              <h2 className="text-lg sm:text-xl font-bold font-display tracking-tight text-slate-800">
+              <h2 className="text-base sm:text-lg font-bold font-display tracking-tight text-slate-900 leading-tight">
                 ของที่ต้องซื้อจากตลาด
               </h2>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 mt-0.5">
                 รวมของสดจากทุกบ้านเพื่อเหมาซื้อในตลาดสด
               </p>
             </div>
@@ -324,24 +324,24 @@ export function ShoppingView({
           <button
             type="button"
             onClick={onOpenPhotoModal}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded-2xl font-bold text-xs shadow-xs border border-emerald-300 active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs shadow-xs border border-emerald-200 active:scale-95 transition-all"
           >
-            <Camera className="w-4 h-4 text-emerald-700" />
-            <span>📸 ถ่ายโพยซื้อของ</span>
+            <Camera className="w-3.5 h-3.5 text-emerald-600" />
+            <span>ถ่ายโพยซื้อ</span>
           </button>
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-4 pt-3 border-t border-emerald-100/80">
+        <div className="mt-3.5 pt-3 border-t border-slate-100">
           <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="text-slate-500 font-medium">ความคืบหน้าการซื้อของ</span>
+            <span className="text-slate-500 font-medium">ความคืบหน้าการซื้อ</span>
             <span className="font-bold text-emerald-800">
-              ซื้อแล้ว {boughtItems}/{totalItems} รายการ ({percentComplete}%)
+              ซื้อแล้ว {boughtItems}/{totalItems} ({percentComplete}%)
             </span>
           </div>
-          <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200/80">
+          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
             <div
-              className="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-300"
+              className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${percentComplete}%` }}
             />
           </div>
