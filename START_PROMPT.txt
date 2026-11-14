@@ -1,0 +1,15 @@
+คุณคือ Senior Full-Stack Engineer กรุณาอ่านและทำตามข้อกำหนดทั้งหมดในไฟล์ PROMPT.md และ README.md ในโฟลเดอร์นี้อย่างละเอียด
+
+ภารกิจของคุณคือสร้างเว็บแอปพลิเคชันระบบจัดการออเดอร์และส่งของสดตามบ้าน (MarketDrop) ให้พร้อมใช้งานจริง:
+
+1. อ่านและทำความเข้าใจ Architecture, Data Structure และ Features ทั้งหมดจาก `PROMPT.md`
+2. เริ่มต้น Setup โปรเจกต์ Next.js 14+ (App Router) + TypeScript + Tailwind CSS + Lucide Icons ในโฟลเดอร์นี้
+3. พัฒนาระบบตามลำดับขั้นตอน:
+   - Step 1: สร้างระบบ LINE Order Parser (Regex + Heuristic แยกบ้านเลขที่, รายการสินค้า, ยอดเงิน, สถานะโอน)
+   - Step 2: สร้างฟังก์ชัน Natural House Sorting (เรียงลำดับบ้านเลขที่ 12/1, 12/2, 12/10 ถูกต้อง) และจัดกลุ่มตามซอย
+   - Step 3: สร้างหน้าจอ Driver Mode (Mobile-First สำหรับคนขับรถส่งของ ตัวหนังสือใหญ่ คอนทราสต์สูง ติ๊กของ และเห็นยอด COD ชัดเจน)
+   - Step 4: สร้างระบบ One-Tap Payment Confirmation (บันทึกว่าเก็บเงินหรือยัง จ่ายเงินสด/สแกนจ่าย พร้อมลงเวลา)
+   - Step 5: สร้างระบบ Real-Time Sync กับ Google Sheets
+4. รัน build และทดสอบว่าทุกหน้าจอทำงานได้อย่างสมบูรณ์ ปราศจาก Error
+
+เริ่มอ่านไฟล์ PROMPT.md และเริ่มดำเนินการได้ทันที!

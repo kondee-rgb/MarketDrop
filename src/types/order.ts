@@ -1,0 +1,57 @@
+export type PaymentStatus = 'PAID' | 'COD'; // โอนแล้ว / เก็บเงินปลายทาง
+export type PaymentMethod = 'TRANSFER' | 'CASH' | 'QR_SCAN' | 'UNPAID'; // โอนแล้ว / เงินสด / สแกนหน้าบ้าน / ค้างชำระ
+export type DeliveryStatus = 'PENDING' | 'IN_TRANSIT' | 'DELIVERED' | 'CANCELLED'; // รอส่ง / กำลังส่ง / ส่งสำเร็จ / ยกเลิก
+
+export interface OrderItem {
+  id: string;
+  name: string;
+  quantity: string | number;
+  unit: string;
+  checked?: boolean; // สำหรับ Driver checklist
+  price?: number;
+}
+
+export interface Order {
+  id: string;
+  stopNumber: number; // ลำดับส่ง 1, 2, 3...
+  houseNumber: string; // เช่น "12/1", "45/10", "99/2"
+  soi: string; // เช่น "ซอย 3", "ซอยมิตรภาพ 5", "หมู่บ้านพฤกษา"
+  customerName: string; // เช่น "คุณสมชาย", "พี่นก"
+  phone: string; // เช่น "081-234-5678"
+  items: OrderItem[];
+  totalAmount: number; // ยอดรวมทั้งบิล (บาท)
+  paymentStatus: PaymentStatus; // โอนแล้ว / เก็บปลายทาง
+  collectedAmount: number; // ยอดที่คนขับเก็บได้จริง (บาท)
+  paymentMethod: PaymentMethod | null;
+  deliveryStatus: DeliveryStatus;
+  deliveredAt: string | null; // วันเวลาที่ส่งเสร็จ เช่น "2026-11-14 20:30"
+  notes: string; // หมายเหตุ เช่น "วางไว้โต๊ะหน้าบ้าน", "แขวนรั้ว"
+  slipImage?: string | null; // รูปภาพสลิปกรณีสแกนจ่าย
+  partialReason?: string; // หมายเหตุกรณีจ่ายไม่ครบ / ค้างจ่าย
+  syncedToSheets?: boolean; // สถานะการซิงค์ลง Google Sheet
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ParsedOrderDraft {
+  houseNumber: string;
+  soi: string;
+  customerName: string;
+  phone: string;
+  items: OrderItem[];
+  totalAmount: number;
+  paymentStatus: PaymentStatus;
+  notes: string;
+  rawText: string;
+}
+
+export interface GoogleSheetsConfig {
+  webhookUrl: string; // URL ของ Google Apps Script Webhook
+  spreadsheetId?: string;
+  sheetName?: string;
+  autoSync: boolean;
+  lastSyncTime?: string | null;
+}
+
+export type SortMode = 'NATURAL_HOUSE' | 'SOI_THEN_HOUSE' | 'MANUAL';
+export type SortDirection = 'ASC' | 'DESC';
