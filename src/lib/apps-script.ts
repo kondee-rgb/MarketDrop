@@ -41,8 +41,21 @@ function doPost(e) {
   }
 }
 
-function doGet() {
-  return json_({ status: 'success', app: 'MarketDrop', version: 2 });
+// GET ?date=YYYY-MM-DD → that day's orders (the app shows them when a day is tapped)
+function doGet(e) {
+  var date = e && e.parameter && e.parameter.date;
+  if (!date) return json_({ status: 'success', app: 'MarketDrop', version: 2 });
+  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ออเดอร์');
+  var rows = sh ? bodyRows_(sh, ORDER_HEADERS.length) : [];
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (ymd_(r[COL.date]) !== date || !r[COL.id]) continue;
+    out.push({ id: String(r[COL.id]), date: date, customerName: r[1], houseNumber: String(r[2]), location: r[3],
+      items: r[5], total: num_(r[6]), paid: num_(r[7]), due: num_(r[8]), paymentMethod: r[9], status: r[10],
+      cost: num_(r[11]), profit: num_(r[12]), notes: r[13] });
+  }
+  return json_({ status: 'success', date: date, orders: out });
 }
 
 function json_(obj) {

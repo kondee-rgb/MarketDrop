@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { TripPlanner } from './TripPlanner';
 import { MoneySplitBar, ProfitTrendChart, TopItemBars } from './ProfitCharts';
+import { DayOrders } from './DayOrders';
 import {
   TrendingUp,
   DollarSign,
@@ -47,6 +48,7 @@ import {
   getProfitAnalyticsByPeriod,
   saveDailyProfitSnapshot,
   clearProfitHistory,
+  deleteProfitRecord,
   toLocalDateStr,
   AnalyticsPeriod,
   PeriodProfitAnalytics
@@ -518,7 +520,16 @@ export function ProfitView({
           )}
         </div>
 
-        <ProfitTrendChart data={trendData} />
+        <ProfitTrendChart
+          data={trendData}
+          onDeleteDay={date => {
+            if (confirm(`ลบประวัติกำไรของวันที่ ${date}? (ข้อมูลในชีตไม่หาย)`)) {
+              deleteProfitRecord(date);
+              showToast('ลบวันนั้นออกจากประวัติแล้ว');
+            }
+          }}
+          renderDetail={date => <DayOrders date={date} localOrders={orders} />}
+        />
       </div>
 
       {/* Trip & Fuel Card */}

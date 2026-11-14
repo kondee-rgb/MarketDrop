@@ -19,12 +19,14 @@ import {
   Building,
   User,
   Check,
+  GripVertical,
   ChevronRight,
   Phone,
   Tag,
   Store
 } from 'lucide-react';
 import { Order, ShoppingItem } from '@/types/order';
+import { SortableList } from '@/components/SortableList';
 import {
   CATEGORY_LABELS,
   HouseAllocationParams,
@@ -64,6 +66,7 @@ interface ShoppingViewProps {
     unit: string,
     orderIdOrHouseNumber: string
   ) => void;
+  onMoveItem?: (fromItemId: string, toItemId: string) => void;
 }
 
 export function ShoppingView({
@@ -75,8 +78,10 @@ export function ShoppingView({
   onSwitchToDelivery,
   existingOrders = [],
   onAllocateItem,
-  onRemoveAllocation
+  onRemoveAllocation,
+  onMoveItem
 }: ShoppingViewProps) {
+  const [reorderMode, setReorderMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -488,6 +493,19 @@ export function ShoppingView({
         </button>
       </div>
 
+      {onMoveItem && filteredItems.length > 1 && (
+        <button
+          type="button"
+          onClick={() => setReorderMode(v => !v)}
+          className={`w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 ${
+            reorderMode ? 'bg-emerald-600 text-white' : 'bg-white ring-1 ring-slate-200 text-slate-700'
+          }`}
+        >
+          {reorderMode ? <Check className="w-3.5 h-3.5" /> : <GripVertical className="w-3.5 h-3.5" />}
+          {reorderMode ? 'เสร็จ' : 'ลากจัดลำดับรายการเอง'}
+        </button>
+      )}
+
       {/* Quick Add Form Drawer */}
       {showAddForm && (
         <form
@@ -563,7 +581,25 @@ export function ShoppingView({
       )}
 
       {/* Products List: Stall-by-Stall or Flat List */}
-      {filteredItems.length === 0 ? (
+      {reorderMode && onMoveItem ? (
+        <div className="space-y-2 animate-in fade-in duration-200">
+          <p className="text-xs text-slate-500 px-1">กดค้างที่ ⋮⋮ แล้วลากขึ้น-ลง เช่น เรียงตามทางเดินในตลาด (ใช้กับทั้งแบบแผงค้าและรายการรวม)</p>
+          <SortableList
+            items={filteredItems}
+            getKey={it => it.id}
+            onMove={(from, to) => onMoveItem(filteredItems[from].id, filteredItems[to].id)}
+            renderItem={it => (
+              <div className="flex items-center gap-3">
+                <span className="text-lg shrink-0">{CATEGORY_LABELS[it.category]?.icon}</span>
+                <p className={`text-sm font-semibold truncate ${it.bought ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{it.name}</p>
+                <span className="ml-auto text-xs text-slate-500 shrink-0 tabular-nums">
+                  {it.totalQuantity} {it.unit}
+                </span>
+              </div>
+            )}
+          />
+        </div>
+      ) : filteredItems.length === 0 ? (
         <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center space-y-3">
           <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-6 h-6" />

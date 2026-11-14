@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DailyTrendPoint } from '@/lib/historical-profit';
+import { Trash2 } from 'lucide-react';
+import { DailyTrendPoint, toLocalDateStr } from '@/lib/historical-profit';
 
 // Palette checked with the dataviz validator (light surface): passes lightness, chroma, CVD and
 // normal-vision separation. Contrast is below 3:1 so every segment also has a visible text label.
@@ -59,7 +60,15 @@ export function MoneySplitBar({ revenue, cost, travel }: { revenue: number; cost
 }
 
 /** Daily net profit columns around a zero line; tap a column to read that day. */
-export function ProfitTrendChart({ data }: { data: DailyTrendPoint[] }) {
+export function ProfitTrendChart({
+  data,
+  onDeleteDay,
+  renderDetail
+}: {
+  data: DailyTrendPoint[];
+  onDeleteDay?: (date: string) => void;
+  renderDetail?: (date: string) => React.ReactNode;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   const [showTable, setShowTable] = useState(false);
 
@@ -89,11 +98,23 @@ export function ProfitTrendChart({ data }: { data: DailyTrendPoint[] }) {
             {baht(Math.abs(day.netProfit))}
           </p>
         </div>
-        <p className="text-xs text-slate-500 text-right tabular-nums">
-          ขาย {baht(day.revenue)}
-          <br />
-          อัตรากำไร {day.marginPercent}%
-        </p>
+        <div className="text-right">
+          <p className="text-xs text-slate-500 tabular-nums">
+            ขาย {baht(day.revenue)}
+            <br />
+            อัตรากำไร {day.marginPercent}%
+          </p>
+          {/* today's figures are live and re-saved, so only past days can be removed */}
+          {onDeleteDay && day.date !== toLocalDateStr() && (
+            <button
+              type="button"
+              onClick={() => onDeleteDay(day.date)}
+              className="mt-1 text-[11px] text-slate-400 hover:text-rose-600 inline-flex items-center gap-1"
+            >
+              <Trash2 className="w-3 h-3" /> ลบออกจากประวัติ
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Columns */}
@@ -133,6 +154,8 @@ export function ProfitTrendChart({ data }: { data: DailyTrendPoint[] }) {
         {data.length > 2 && <span>{data[Math.floor(data.length / 2)].displayDate}</span>}
         <span>{data[data.length - 1].displayDate}</span>
       </div>
+
+      {renderDetail?.(day.date)}
 
       <button
         type="button"

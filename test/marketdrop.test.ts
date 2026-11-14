@@ -1276,7 +1276,7 @@ describe('20. Google Sheets v2 (history upsert + summaries)', () => {
       { getActiveSpreadsheet: () => ss },
       { createTextOutput: (t: string) => ({ setMimeType: () => t }), MimeType: { JSON: 'json' } },
       { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) }
-    ) as { doPost: (e: unknown) => string };
+    ) as { doPost: (e: unknown) => string; doGet: (e: unknown) => string };
   };
 
   const order = (id: string, date: string, customer: string, total: number, cost: number, status = 'ส่งสำเร็จ') => ({
@@ -1331,6 +1331,12 @@ describe('20. Google Sheets v2 (history upsert + summaries)', () => {
     expect(rowOf('15 พ.ย. 2026')).toEqual([1, 150, 100, 20, 30]);
     // 14 Nov 2026 is a Saturday, 15 Nov a Sunday: both in the week starting Monday 9 Nov
     expect(rowOf('สัปดาห์เริ่ม 9 พ.ย. 2026')).toEqual([3, 700, 420, 60, 220]);
+
+    // Tapping a day in the app asks for that day's orders (cancelled ones included, flagged by status)
+    const day = JSON.parse(script.doGet({ parameter: { date: '2026-11-14' } }));
+    expect(day.orders.map((o: { id: string }) => o.id).sort()).toEqual(['a', 'b']);
+    expect(day.orders.find((o: { id: string }) => o.id === 'a').total).toBe(250);
+    expect(JSON.parse(script.doGet({ parameter: {} })).version).toBe(2);
   });
 
   it('builds the app payload: order day, paid/due, cost and travel cost', async () => {
@@ -1366,5 +1372,33 @@ describe('20. Google Sheets v2 (history upsert + summaries)', () => {
     expect(denied.ok).toBe(false);
     expect(denied.message).toContain('ทุกคน');
     expect(interpretSheetsReply(200, '{"status":"error","message":"boom"}').message).toContain('boom');
+  });
+});
+
+describe('21. Drag-to-reorder (delivery + shopping)', () => {
+  it('computes where a dragged row lands', async () => {
+    const { computeDropIndex } = await import('../src/components/SortableList');
+    const mids = [50, 150, 250, 350]; // row midpoints
+    expect(computeDropIndex(mids, 0, 50)).toBe(0); // not moved
+    expect(computeDropIndex(mids, 0, 260)).toBe(2); // first row dropped past the 3rd
+    expect(computeDropIndex(mids, 3, 40)).toBe(0); // last row dragged to the top
+    expect(computeDropIndex(mids, 1, 999)).toBe(3);
+  });
+
+  it('keeps a dragged shopping order and puts new items after it', async () => {
+    const { applyItemOrder, moveInOrder } = await import('../src/lib/shopping-aggregator');
+    const item = (id: string) => ({ id, name: id, category: 'other' as const, totalQuantity: 1, unit: 'ชิ้น', bought: false, allocations: [] });
+    const order = moveInOrder(['a', 'b', 'c'], 'c', 'a'); // drag c to the top
+    expect(order).toEqual(['c', 'a', 'b']);
+    expect(applyItemOrder([item('a'), item('new'), item('b'), item('c')], order).map(i => i.id)).toEqual(['c', 'a', 'b', 'new']);
+    expect(applyItemOrder([item('x'), item('y')], []).map(i => i.id)).toEqual(['x', 'y']);
+    expect(moveInOrder(['a', 'b'], 'zz', 'a')).toEqual(['a', 'b']);
+  });
+
+  it('reorders delivery stops and renumbers them', async () => {
+    const { reorderOrders } = await import('../src/lib/natural-sort');
+    const o = (id: string) => ({ id, stopNumber: 0 }) as unknown as Order;
+    const next = reorderOrders([o('a'), o('b'), o('c')], 2, 0);
+    expect(next.map(x => [x.id, x.stopNumber])).toEqual([['c', 1], ['a', 2], ['b', 3]]);
   });
 });

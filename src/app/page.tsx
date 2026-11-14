@@ -31,7 +31,7 @@ import {
   MOCK_ORDER_IDS,
   MOCK_CUSTOMER_NAMES
 } from '@/lib/storage';
-import { sortOrders } from '@/lib/natural-sort';
+import { sortOrders, reorderOrders } from '@/lib/natural-sort';
 import { syncToGoogleSheets } from '@/lib/sheets';
 import { INITIAL_SAMPLE_ORDERS } from '@/lib/sample-data';
 import {
@@ -41,8 +41,12 @@ import {
   detectCategory,
   allocateItemToHouse,
   removeAllocationFromHouse,
+  applyItemOrder,
+  moveInOrder,
   HouseAllocationParams
 } from '@/lib/shopping-aggregator';
+
+const SORT_PREF_KEY = 'marketdrop_sort_pref_v1';
 
 export default function MarketDropApp() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -65,6 +69,7 @@ export default function MarketDropApp() {
   // Shopping state
   const [boughtShoppingIds, setBoughtShoppingIds] = useState<string[]>([]);
   const [manualShoppingItems, setManualShoppingItems] = useState<ShoppingItem[]>([]);
+  const [shoppingItemOrder, setShoppingItemOrder] = useState<string[]>([]);
 
   // Load orders and shopping state on mount
   useEffect(() => {
@@ -74,13 +79,26 @@ export default function MarketDropApp() {
         !MOCK_ORDER_IDS.includes(o.id) &&
         !MOCK_CUSTOMER_NAMES.some(m => (o.customerName || '').includes(m))
     );
-    const sorted = sortOrders(cleanOrders, 'NATURAL_HOUSE', 'ASC');
+    // Restore the last sort choice; a hand-dragged (MANUAL) order is kept exactly as saved
+    let savedMode: SortMode = 'NATURAL_HOUSE';
+    let savedDir: SortDirection = 'ASC';
+    try {
+      const raw = JSON.parse(localStorage.getItem(SORT_PREF_KEY) || 'null');
+      if (raw && ['NATURAL_HOUSE', 'SOI_THEN_HOUSE', 'MANUAL'].includes(raw.mode)) savedMode = raw.mode;
+      if (raw && (raw.dir === 'ASC' || raw.dir === 'DESC')) savedDir = raw.dir;
+    } catch {
+      // ignore
+    }
+    setSortMode(savedMode);
+    setSortDirection(savedDir);
+    const sorted = sortOrders(cleanOrders, savedMode, savedDir);
     setOrders(sorted);
     setSheetsConfig(loadSheetsConfig());
 
     const shopState = loadShoppingState();
     setBoughtShoppingIds(shopState.boughtItemIds || []);
     setManualShoppingItems(shopState.manualItems || []);
+    setShoppingItemOrder(shopState.itemOrder || []);
 
     // Sync default webhook URL from server if local is empty
     fetch('/api/sheets/sync')
@@ -102,6 +120,16 @@ export default function MarketDropApp() {
     setIsMounted(true);
   }, []);
 
+  // Remember the sort choice (incl. MANUAL after a drag)
+  useEffect(() => {
+    if (!isMounted) return;
+    try {
+      localStorage.setItem(SORT_PREF_KEY, JSON.stringify({ mode: sortMode, dir: sortDirection }));
+    } catch {
+      // ignore
+    }
+  }, [sortMode, sortDirection, isMounted]);
+
   // Save orders to localStorage
   useEffect(() => {
     if (isMounted) {
@@ -114,15 +142,16 @@ export default function MarketDropApp() {
     if (isMounted) {
       saveShoppingState({
         boughtItemIds: boughtShoppingIds,
-        manualItems: manualShoppingItems
+        manualItems: manualShoppingItems,
+        itemOrder: shoppingItemOrder
       });
     }
-  }, [boughtShoppingIds, manualShoppingItems, isMounted]);
+  }, [boughtShoppingIds, manualShoppingItems, shoppingItemOrder, isMounted]);
 
   // Consolidated Shopping List (Aggregated from active orders + manual items)
   const consolidatedShoppingItems = useMemo(() => {
-    return aggregateShoppingList(orders, manualShoppingItems, boughtShoppingIds);
-  }, [orders, manualShoppingItems, boughtShoppingIds]);
+    return applyItemOrder(aggregateShoppingList(orders, manualShoppingItems, boughtShoppingIds), shoppingItemOrder);
+  }, [orders, manualShoppingItems, boughtShoppingIds, shoppingItemOrder]);
 
   // Cloud Sync Handler
   const performSync = useCallback(
@@ -164,6 +193,20 @@ export default function MarketDropApp() {
     setSortMode(mode);
     setSortDirection(dir);
     setOrders(prev => sortOrders(prev, mode, dir));
+  };
+
+  // Drag-to-reorder delivery stops (ids, so it works on a filtered view too)
+  const handleMoveOrder = (fromId: string, toId: string) => {
+    const from = orders.findIndex(o => o.id === fromId);
+    const to = orders.findIndex(o => o.id === toId);
+    if (from < 0 || to < 0) return;
+    setSortMode('MANUAL'); // so later additions don't re-sort over the hand-made order
+    commitOrders(reorderOrders(orders, from, to), false);
+  };
+
+  // Drag-to-reorder shopping items (stored as an id list)
+  const handleMoveShoppingItem = (fromId: string, toId: string) => {
+    setShoppingItemOrder(moveInOrder(consolidatedShoppingItems.map(it => it.id), fromId, toId));
   };
 
   // Toggle item checked in Driver mode
@@ -418,6 +461,7 @@ export default function MarketDropApp() {
             existingOrders={orders}
             onAllocateItem={handleAllocateItem}
             onRemoveAllocation={handleRemoveAllocation}
+            onMoveItem={handleMoveShoppingItem}
           />
         )}
 
@@ -431,6 +475,9 @@ export default function MarketDropApp() {
             onOpenPhotoModal={() => setIsPhotoModalOpen(true)}
             onOpenPasteModal={() => setIsPasteModalOpen(true)}
             onOpenManualModal={() => setIsManualModalOpen(true)}
+            sortDirection={sortMode === 'NATURAL_HOUSE' ? sortDirection : undefined}
+            onSortByHouse={dir => handleApplySorting('NATURAL_HOUSE', dir)}
+            onMoveOrder={handleMoveOrder}
           />
         )}
 

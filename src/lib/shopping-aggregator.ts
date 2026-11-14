@@ -53,6 +53,27 @@ const LEGACY_SHOPPING_KEYS = [
 export interface SavedShoppingState {
   boughtItemIds: string[]; // รายการที่ติ๊กซื้อแล้ว
   manualItems: ShoppingItem[]; // รายการที่ผู้ใช้เพิ่มเองพิเศษ
+  itemOrder?: string[]; // ลำดับที่ลากจัดเอง (id ของรายการ)
+}
+
+/** Put items in the user's dragged order; items not in the list keep their place after the ordered ones. */
+export function applyItemOrder(items: ShoppingItem[], order: string[] = []): ShoppingItem[] {
+  if (!order.length) return items;
+  const rank = new Map(order.map((id, i) => [id, i]));
+  return items
+    .map((it, i) => ({ it, i }))
+    .sort((a, b) => (rank.get(a.it.id) ?? order.length + a.i) - (rank.get(b.it.id) ?? order.length + b.i))
+    .map(x => x.it);
+}
+
+/** Move one id to another id's slot in an id list. */
+export function moveInOrder(ids: string[], fromId: string, toId: string): string[] {
+  const from = ids.indexOf(fromId);
+  const to = ids.indexOf(toId);
+  if (from < 0 || to < 0 || from === to) return ids;
+  const next = [...ids];
+  next.splice(to, 0, next.splice(from, 1)[0]);
+  return next;
 }
 
 export function loadShoppingState(): SavedShoppingState {
@@ -73,7 +94,8 @@ export function loadShoppingState(): SavedShoppingState {
     const parsed = JSON.parse(raw);
     return {
       boughtItemIds: Array.isArray(parsed.boughtItemIds) ? parsed.boughtItemIds : [],
-      manualItems: Array.isArray(parsed.manualItems) ? parsed.manualItems : []
+      manualItems: Array.isArray(parsed.manualItems) ? parsed.manualItems : [],
+      itemOrder: Array.isArray(parsed.itemOrder) ? parsed.itemOrder : []
     };
   } catch {
     return { boughtItemIds: [], manualItems: [] };
@@ -440,11 +462,12 @@ export function groupShoppingItemsByShop(
   }));
 
   // เรียงแผงที่ยังซื้อไม่เสร็จไว้ด้านบน แผงที่เสร็จแล้วไว้ด้านล่าง
+  // ที่เหลือคงลำดับตามรายการแรกของแผง (จึงตามลำดับที่ผู้ใช้ลากจัดไว้ เช่น ทางเดินในตลาด)
   groups.sort((a, b) => {
     if (a.isCompleted !== b.isCompleted) {
       return a.isCompleted ? 1 : -1;
     }
-    return a.shopName.localeCompare(b.shopName, 'th');
+    return 0; // stable sort keeps first-appearance order
   });
 
   return groups;
