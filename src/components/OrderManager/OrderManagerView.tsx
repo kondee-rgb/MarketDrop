@@ -11,8 +11,7 @@ import {
   Download,
   UploadCloud,
   FileSpreadsheet,
-  Trash2,
-  Sparkles
+  Trash2
 } from 'lucide-react';
 import { Order, SortDirection, SortMode } from '@/types/order';
 import { OrderCardAdmin } from './OrderCardAdmin';
@@ -131,13 +130,13 @@ export function OrderManagerView({
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-4 sm:p-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           {/* Main Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="grid grid-cols-2 gap-2 lg:flex lg:flex-wrap">
             <button
               onClick={() => setIsPasteModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-sm shadow-md shadow-emerald-700/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
             >
               <ClipboardList className="w-4 h-4" />
-              <span>วางข้อความ LINE (Quick-Paste)</span>
+              <span>วางแชท LINE</span>
             </button>
 
             <button
@@ -145,24 +144,24 @@ export function OrderManagerView({
                 setEditingOrder(null);
                 setIsManualModalOpen(true);
               }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-sm transition-all"
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
             >
               <Plus className="w-4 h-4" />
-              <span>เพิ่มออเดอร์เอง (Manual)</span>
+              <span>เพิ่มออเดอร์</span>
             </button>
 
             <button
               onClick={onOpenSheetsModal}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-semibold text-xs sm:text-sm transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
             >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span>ซิงค์ชีต / ส่งขึ้นคลาวด์</span>
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>ซิงค์ชีต</span>
             </button>
 
             <button
               onClick={handleExportCsv}
               title="ดาวน์โหลดไฟล์ CSV สำหรับ Excel / Google Sheets"
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs sm:text-sm transition-colors"
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
             >
               <Download className="w-4 h-4" />
               <span>โหลด CSV</span>
@@ -185,10 +184,7 @@ export function OrderManagerView({
         {/* Smart Sorting Bar */}
         <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-bold text-slate-700 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              จัดเรียงเส้นทาง:
-            </span>
+            <span className="font-medium text-slate-500">เรียงตาม</span>
 
             {/* Sort 1: Natural House Number */}
             <button
@@ -199,7 +195,7 @@ export function OrderManagerView({
                   : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
-              🏠 เรียงบ้านเลขที่ (12/1 → 12/2 → 12/10)
+              เลขบ้าน
             </button>
 
             {/* Sort 2: Soi then House */}
@@ -211,7 +207,7 @@ export function OrderManagerView({
                   : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
-              📍 เรียงตามซอย แล้วตามด้วยบ้านเลขที่
+              ซอย → เลขบ้าน
             </button>
 
             {/* Direction Toggle */}
@@ -234,7 +230,7 @@ export function OrderManagerView({
               onClick={() => setIsGroupedView(!isGroupedView)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold border transition-colors ${
                 isGroupedView
-                  ? 'bg-blue-600 text-white border-blue-600'
+                  ? 'bg-emerald-600 text-white border-emerald-600'
                   : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
               }`}
             >
@@ -263,7 +259,7 @@ export function OrderManagerView({
           </div>
           <h3 className="font-bold text-slate-700">ไม่พบรายการออเดอร์</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            กดปุ่ม &ldquo;วางข้อความ LINE (Quick-Paste)&rdquo; เพื่อดึงข้อมูลออเดอร์จากแชท หรือกดปุ่ม &ldquo;เพิ่มออเดอร์เอง&rdquo;
+            กดปุ่ม &ldquo;วางแชท LINE&rdquo; เพื่อดึงข้อมูลออเดอร์จากแชท หรือกดปุ่ม &ldquo;เพิ่มออเดอร์&rdquo;
           </p>
           <button
             onClick={() => setIsPasteModalOpen(true)}

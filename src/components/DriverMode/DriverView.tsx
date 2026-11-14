@@ -206,7 +206,7 @@ export function DriverView({
               }`}
             >
               <ClipboardList className="w-4 h-4 text-emerald-600" />
-              <span>📋 สรุปเส้นทาง & เลขที่บ้าน</span>
+              <span>ภาพรวมเส้นทาง</span>
             </button>
             <button
               type="button"
@@ -218,7 +218,7 @@ export function DriverView({
               }`}
             >
               <Truck className="w-4 h-4 text-teal-600" />
-              <span>🛵 คิวส่งทีละบ้าน ({pendingOrders.length})</span>
+              <span>ส่งทีละบ้าน ({pendingOrders.length})</span>
             </button>
           </div>
         </div>
@@ -269,22 +269,22 @@ export function DriverView({
             <button
               type="button"
               onClick={() => onSortByHouse(sortDirection === 'ASC' ? 'DESC' : 'ASC')}
-              className="flex-1 py-2 px-3 rounded-xl bg-white ring-1 ring-slate-200 text-xs font-semibold text-slate-700 flex items-center justify-center gap-1.5"
+              className="flex-1 min-h-10 py-2 px-3 rounded-xl bg-white ring-1 ring-slate-200 text-xs font-medium text-slate-700 flex items-center justify-center gap-1.5"
             >
-              <ArrowUpDown className="w-3.5 h-3.5" />
-              เรียงตามเลขบ้าน{sortDirection ? ` (${sortDirection === 'ASC' ? 'น้อย→มาก' : 'มาก→น้อย'})` : ''}
+              <ArrowUpDown className="w-3.5 h-3.5" aria-hidden="true" />
+              เรียงเลขบ้าน{sortDirection ? ` ${sortDirection === 'ASC' ? '1→9' : '9→1'}` : ''}
             </button>
           )}
           {onMoveOrder && (
             <button
               type="button"
               onClick={() => setReorderMode(v => !v)}
-              className={`flex-1 py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 ${
+              className={`flex-1 min-h-10 py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center gap-1.5 ${
                 reorderMode ? 'bg-emerald-600 text-white' : 'bg-white ring-1 ring-slate-200 text-slate-700'
               }`}
             >
               {reorderMode ? <Check className="w-3.5 h-3.5" /> : <GripVertical className="w-3.5 h-3.5" />}
-              {reorderMode ? 'เสร็จ' : 'ลากจัดลำดับเอง'}
+              {reorderMode ? 'เสร็จ' : 'จัดลำดับเอง'}
             </button>
           )}
         </div>
@@ -321,7 +321,8 @@ export function DriverView({
       {/* SUB-TAB 1: 📋 สรุปเส้นทาง & เลขที่บ้าน (House Manifest Summary) */}
       {subTab === 'manifest' && !reorderMode && (
         <div className="space-y-3 animate-in fade-in duration-200">
-          {/* Location filter chips */}
+          {/* Location filter chips (only when orders span more than one project) */}
+          {new Set(filteredByStatusOrders.map(o => o.locationId || 'custom')).size > 1 && (
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
             <button
               onClick={() => setSelectedLocationId('all')}
@@ -347,13 +348,13 @@ export function DriverView({
                       : 'bg-white text-slate-600 border-slate-200/80 hover:bg-slate-50'
                   }`}
                 >
-                  <span>{loc.type === 'condo' ? '🏢' : '🏡'}</span>
-                  <span>{loc.name.split(' (')[0]}</span>
+                  <span>{loc.shortName}</span>
                   <span className="opacity-80">({count})</span>
                 </button>
               );
             })}
           </div>
+          )}
 
           {displayedOrders.length === 0 ? (
             <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center space-y-3">
@@ -392,7 +393,7 @@ export function DriverView({
                             </span>
                             {locConfig && (
                               <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg flex items-center gap-1">
-                                {locConfig.type === 'condo' ? '🏢' : '🏡'} {locConfig.name}
+                                {locConfig.shortName}
                               </span>
                             )}
                           </div>
@@ -425,7 +426,7 @@ export function DriverView({
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-full text-xs font-bold">
-                              💰 COD ฿{order.totalAmount.toLocaleString()}
+                              COD ฿{order.totalAmount.toLocaleString()}
                             </span>
                           )}
 
@@ -436,7 +437,7 @@ export function DriverView({
                               </span>
                             ) : (
                               <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">
-                                ⏳ รอส่ง
+                                รอส่ง
                               </span>
                             )}
                           </div>
@@ -513,7 +514,7 @@ export function DriverView({
                           onClick={() => handleJumpToCard(order.id)}
                           className="w-full py-2 px-3 bg-slate-50 hover:bg-emerald-50 text-emerald-800 hover:text-emerald-900 hover:border-emerald-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1"
                         >
-                          <span>🛵 เปิดการ์ดส่งของบ้านนี้ (ติ๊กของ / บันทึกส่ง)</span>
+                          <span>เปิดการ์ดส่ง · ติ๊กของ / รับเงิน</span>
                           <ChevronRight className="w-4 h-4 text-emerald-600" />
                         </button>
                       </div>

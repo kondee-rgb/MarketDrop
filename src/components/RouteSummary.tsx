@@ -51,7 +51,7 @@ export function RouteSummary({ orders }: RouteSummaryProps) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         {/* Metric 1: Total Stops */}
         <div className="bg-slate-50 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-white text-slate-500 flex items-center justify-center flex-shrink-0">
             <Home className="w-5 h-5" />
           </div>
           <div className="min-w-0">
@@ -63,26 +63,26 @@ export function RouteSummary({ orders }: RouteSummaryProps) {
         </div>
 
         {/* Metric 2: Completed Stops */}
-        <div className="bg-emerald-50/70 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+        <div className="bg-slate-50 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-white text-slate-500 flex items-center justify-center flex-shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] text-emerald-700 font-medium">ส่งสำเร็จแล้ว</p>
-            <p className="text-base sm:text-lg font-black text-emerald-900 tracking-tight">
-              {completedStops} <span className="text-xs font-normal text-emerald-600">หลัง</span>
+            <p className="text-[11px] text-slate-500 font-medium">ส่งสำเร็จแล้ว</p>
+            <p className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              {completedStops} <span className="text-xs font-normal text-slate-500">หลัง</span>
             </p>
           </div>
         </div>
 
         {/* Metric 3: COD Pending */}
-        <div className="bg-amber-50/80 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
+        <div className="bg-slate-50 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-white text-slate-500 flex items-center justify-center flex-shrink-0">
             <Banknote className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] text-amber-700 font-semibold">ยอด COD รอเก็บ</p>
-            <p className="text-base sm:text-lg font-black text-amber-900 tracking-tight">
+            <p className="text-[11px] text-slate-500 font-medium">ยอด COD รอเก็บ</p>
+            <p className="text-base sm:text-lg font-black text-amber-700 tracking-tight">
               ฿{pendingCodAmount.toLocaleString()}
             </p>
           </div>
@@ -90,7 +90,7 @@ export function RouteSummary({ orders }: RouteSummaryProps) {
 
         {/* Metric 4: Total Collected */}
         <div className="bg-slate-50 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-lg bg-white text-slate-500 flex items-center justify-center flex-shrink-0">
             <Wallet className="w-5 h-5" />
           </div>
           <div className="min-w-0">

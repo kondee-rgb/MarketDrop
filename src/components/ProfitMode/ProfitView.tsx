@@ -5,7 +5,6 @@ import { TripPlanner } from './TripPlanner';
 import { MoneySplitBar, ProfitTrendChart, TopItemBars } from './ProfitCharts';
 import { DayOrders } from './DayOrders';
 import {
-  TrendingUp,
   DollarSign,
   Fuel,
   ShoppingCart,
@@ -46,7 +45,8 @@ import {
 import { CATEGORY_LABELS } from '@/lib/shopping-aggregator';
 import {
   getProfitAnalyticsByPeriod,
-  saveDailyProfitSnapshot,
+  syncSnapshotsFromOrders,
+  ordersOnDate,
   clearProfitHistory,
   deleteProfitRecord,
   toLocalDateStr,
@@ -71,7 +71,7 @@ export function ProfitView({
 }: ProfitViewProps) {
   // Fuel config state
   const [fuelConfig, setFuelConfig] = useState<FuelConfig>(getFuelConfig());
-  const [isFuelCardOpen, setIsFuelCardOpen] = useState(true);
+  const [isFuelCardOpen, setIsFuelCardOpen] = useState(false); // header already shows the total
 
   // Price Book drawer state
   const [isPriceBookOpen, setIsPriceBookOpen] = useState(false);
@@ -127,12 +127,13 @@ export function ProfitView({
     saveFuelConfig(updated);
   };
 
-  // Recalculate P&L live
+  // "Today" = orders created today only (yesterday's leftovers stay in yesterday)
+  const todayOrders = useMemo(() => ordersOnDate(orders, toLocalDateStr()), [orders]);
   const profitSummary: DailyProfitSummary = useMemo(
-    () => calculateDailyProfit(orders, fuelConfig, manualShoppingItems),
-    [orders, fuelConfig, manualShoppingItems]
+    () => calculateDailyProfit(todayOrders, fuelConfig, manualShoppingItems),
+    [todayOrders, fuelConfig, manualShoppingItems]
   );
-  const collection = useMemo(() => calculateCollectionStats(orders), [orders]);
+  const collection = useMemo(() => calculateCollectionStats(todayOrders), [todayOrders]);
   const paymentSegments = [
     { key: 'TRANSFER', label: 'โอน', value: collection.byMethod.TRANSFER, color: 'bg-emerald-500' },
     { key: 'QR_SCAN', label: 'สแกน QR', value: collection.byMethod.QR_SCAN, color: 'bg-sky-500' },
@@ -145,10 +146,10 @@ export function ProfitView({
     [profitSummary]
   );
 
-  // Auto-save today's snapshot on profit summary changes
+  // Keep each day's history record in step with that day's orders
   useEffect(() => {
-    if (profitSummary.totalOrders > 0) saveDailyProfitSnapshot(toLocalDateStr(), profitSummary);
-  }, [profitSummary]);
+    syncSnapshotsFromOrders(orders, fuelConfig, manualShoppingItems);
+  }, [orders, fuelConfig, manualShoppingItems]);
 
   // Query analytics for selected period
   const periodAnalytics: PeriodProfitAnalytics = getProfitAnalyticsByPeriod(
@@ -268,22 +269,22 @@ export function ProfitView({
       )}
 
       {/* Period Filter Tabs: วันนี้, 7 วัน, เดือนนี้, ทั้งหมด, เลือกวัน */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+      <div className="grid grid-cols-5 gap-1 p-1 rounded-2xl bg-slate-200/60 text-xs" role="tablist" aria-label="ช่วงเวลา">
         {[
-          { id: 'today', label: '☀️ วันนี้' },
-          { id: '7days', label: '📅 7 วันย้อนหลัง' },
-          { id: 'this_month', label: '📊 เดือนนี้' },
-          { id: 'all', label: '📈 ทั้งหมด' },
-          { id: 'custom', label: '🗓️ เลือกวัน' },
+          { id: 'today', label: 'วันนี้' },
+          { id: '7days', label: '7 วัน' },
+          { id: 'this_month', label: 'เดือนนี้' },
+          { id: 'all', label: 'ทั้งหมด' },
+          { id: 'custom', label: 'เลือกวัน' }
         ].map(p => (
           <button
             key={p.id}
             type="button"
+            role="tab"
+            aria-selected={selectedPeriod === p.id}
             onClick={() => setSelectedPeriod(p.id as AnalyticsPeriod)}
-            className={`px-3 py-1.5 rounded-2xl font-bold whitespace-nowrap transition-all border flex items-center gap-1 ${
-              selectedPeriod === p.id
-                ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            className={`py-2 rounded-xl font-medium whitespace-nowrap transition-all ${
+              selectedPeriod === p.id ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'text-slate-600'
             }`}
           >
             {p.label}
@@ -307,149 +308,89 @@ export function ProfitView({
         </div>
       )}
 
-      {/* Hero P&L Card: Net Profit & Core Metrics */}
-      <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center flex-shrink-0">
-              <TrendingUp className="w-5 h-5 text-emerald-600" />
+      {/* Summary: net profit first, then where the money went */}
+      {(() => {
+        const isToday = selectedPeriod === 'today';
+        const net = isToday ? profitSummary.netProfit : periodAnalytics.netProfit;
+        const revenue = isToday ? profitSummary.totalRevenue : periodAnalytics.totalRevenue;
+        const margin = isToday ? profitSummary.netMarginPercent : periodAnalytics.profitMarginPercent;
+        const periodTitle =
+          selectedPeriod === 'today' ? 'วันนี้'
+          : selectedPeriod === '7days' ? '7 วันล่าสุด'
+          : selectedPeriod === 'this_month' ? 'เดือนนี้'
+          : selectedPeriod === 'all' ? 'ทั้งหมด'
+          : `วันที่ ${customDate}`;
+        return (
+          <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-xs text-slate-500">{periodTitle} · {net < 0 ? 'ขาดทุนสุทธิ' : 'กำไรสุทธิ'}</h2>
+                <p className={`text-4xl font-semibold tabular-nums tracking-tight leading-tight ${net < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                  ฿{Math.abs(net).toLocaleString()}
+                </p>
+                <p className="text-xs text-slate-500 mt-1 tabular-nums">
+                  ขาย ฿{revenue.toLocaleString()} · อัตรากำไร {margin}%
+                  {' · '}
+                  {isToday
+                    ? `ส่งแล้ว ${profitSummary.totalDeliveredOrders}/${profitSummary.totalOrders} หลัง`
+                    : `${periodAnalytics.totalOrders} ออเดอร์ ${periodAnalytics.daysRecorded} วัน`}
+                </p>
+                {!isToday && periodAnalytics.daysRecorded > 1 && (
+                  <p className="text-xs text-slate-500 tabular-nums">
+                    เฉลี่ยต่อวัน: ขาย ฿{periodAnalytics.averageDailyRevenue.toLocaleString()} · กำไร ฿{periodAnalytics.averageDailyNetProfit.toLocaleString()}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleExportCsv}
+                  aria-label="ส่งออกรายงาน CSV"
+                  title="ส่งออกรายงาน CSV"
+                  className="w-10 h-10 flex items-center justify-center text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-xl"
+                >
+                  <Download className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenSheetsModal}
+                  aria-label="ตั้งค่า Google Sheets"
+                  title="ตั้งค่า Google Sheets"
+                  className="w-10 h-10 flex items-center justify-center text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-xl"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">
-                PROFIT & LOSS
-              </span>
-              <h2 className="text-lg sm:text-xl font-bold font-display text-slate-900 leading-tight">
-                {selectedPeriod === 'today'
-                  ? 'สรุปกำไร-ขาดทุนวันนี้'
-                  : selectedPeriod === '7days'
-                  ? 'สรุปกำไร-ขาดทุน (7 วันย้อนหลัง)'
-                  : selectedPeriod === 'this_month'
-                  ? 'สรุปกำไร-ขาดทุน (เดือนนี้)'
-                  : selectedPeriod === 'all'
-                  ? 'สรุปกำไร-ขาดทุน (ทั้งหมด)'
-                  : `สรุปกำไร-ขาดทุน วันที่ ${customDate}`}
-              </h2>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              className="p-2 text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 rounded-xl transition-all"
-              title="ส่งออกรายงาน CSV"
-            >
-              <Download className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onOpenSheetsModal}
-              className="p-2 text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 rounded-xl transition-all"
-              title="ตั้งค่า Google Sheets"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            </button>
+            <MoneySplitBar
+              revenue={revenue}
+              cost={isToday ? profitSummary.totalProduceCost : periodAnalytics.totalProduceCost}
+              travel={isToday ? profitSummary.totalTransportExpense : periodAnalytics.totalExpenses - periodAnalytics.totalProduceCost}
+            />
           </div>
-        </div>
-
-        {/* Big Net Profit Display */}
-        <div className="bg-emerald-50/70 rounded-2xl p-4 text-center space-y-1">
-          <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
-            💎 กำไรสุทธิ (หักค่าน้ำมันแล้ว)
-          </p>
-          <h1 className="text-3xl sm:text-4xl font-black text-emerald-700 font-display tracking-tight leading-none py-0.5">
-            ฿{(selectedPeriod === 'today' ? profitSummary.netProfit : periodAnalytics.netProfit).toLocaleString()}
-          </h1>
-          <div className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-800">
-            <span>
-              อัตรากำไร: <strong>{selectedPeriod === 'today' ? profitSummary.netMarginPercent : periodAnalytics.profitMarginPercent}%</strong>
-            </span>
-            <span>•</span>
-            <span>
-              {selectedPeriod === 'today'
-                ? `ส่งสำเร็จ: ${profitSummary.totalDeliveredOrders}/${profitSummary.totalOrders} หลัง`
-                : `รวม ${periodAnalytics.totalOrders} ออเดอร์ (${periodAnalytics.daysRecorded} วัน)`}
-            </span>
-          </div>
-        </div>
-
-        {/* 3 Metrics Grid: Revenue, Produce Cost, Transport Expense */}
-        <div className="grid grid-cols-3 gap-2">
-          {/* Revenue */}
-          <div className="bg-slate-50 rounded-2xl p-3 text-center">
-            <p className="text-[10px] font-bold text-slate-500 uppercase">💵 ยอดขายรวม</p>
-            <p className="text-sm sm:text-base font-black text-slate-900 font-display mt-0.5">
-              ฿{(selectedPeriod === 'today' ? profitSummary.totalRevenue : periodAnalytics.totalRevenue).toLocaleString()}
-            </p>
-          </div>
-
-          {/* Produce Cost */}
-          <div className="bg-slate-50 rounded-2xl p-3 text-center">
-            <p className="text-[10px] font-bold text-slate-500 uppercase">🛒 ต้นทุนของสด</p>
-            <p className="text-sm sm:text-base font-black text-slate-900 font-display mt-0.5">
-              ฿{(selectedPeriod === 'today' ? profitSummary.totalProduceCost : periodAnalytics.totalProduceCost).toLocaleString()}
-            </p>
-          </div>
-
-          {/* Fuel & Travel Expense */}
-          <div className="bg-slate-50 rounded-2xl p-3 text-center">
-            <p className="text-[10px] font-bold text-slate-500 uppercase">⛽ ค่าน้ำมัน</p>
-            <p className="text-sm sm:text-base font-black text-slate-900 font-display mt-0.5">
-              ฿{(selectedPeriod === 'today' ? profitSummary.totalTransportExpense : periodAnalytics.totalFuelCost).toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        {/* Daily Averages if Viewing Period with History */}
-        {selectedPeriod !== 'today' && periodAnalytics.daysRecorded > 1 && (
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <div className="bg-slate-50/90 rounded-xl p-2.5 text-center">
-              <span className="text-[10px] text-slate-500 block">เฉลี่ยยอดขายต่อวัน</span>
-              <strong className="text-xs text-slate-800 font-bold">
-                ฿{periodAnalytics.averageDailyRevenue.toLocaleString()}
-              </strong>
-            </div>
-            <div className="bg-emerald-50/70 rounded-xl p-2.5 text-center">
-              <span className="text-[10px] text-emerald-700 block">เฉลี่ยกำไรสุทธิต่อวัน</span>
-              <strong className="text-xs text-emerald-800 font-bold">
-                ฿{periodAnalytics.averageDailyNetProfit.toLocaleString()}
-              </strong>
-            </div>
-          </div>
-        )}
-
-        {/* Where the money went */}
-        <MoneySplitBar
-          revenue={selectedPeriod === 'today' ? profitSummary.totalRevenue : periodAnalytics.totalRevenue}
-          cost={selectedPeriod === 'today' ? profitSummary.totalProduceCost : periodAnalytics.totalProduceCost}
-          travel={selectedPeriod === 'today' ? profitSummary.totalTransportExpense : periodAnalytics.totalExpenses - periodAnalytics.totalProduceCost}
-        />
-      </div>
+        );
+      })()}
 
       {/* Collection & Insights Card (live, today) */}
       {selectedPeriod === 'today' && collection.billed > 0 && (
         <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center">
-              <Wallet className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 font-display">สถานะการเก็บเงินวันนี้</h3>
-              <p className="text-[11px] text-slate-500">เก็บแล้ว vs ยังค้าง แยกตามช่องทาง</p>
-            </div>
-          </div>
+          <h3 className="text-[15px] font-semibold text-slate-900 font-display flex items-center gap-2">
+            <Wallet className="w-4 h-4 text-slate-500" aria-hidden="true" />
+            เก็บเงินวันนี้
+          </h3>
 
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-2xl bg-emerald-50/70 p-2.5">
-              <p className="text-[10px] text-emerald-700">ได้รับแล้ว</p>
-              <p className="text-sm font-bold text-emerald-800 tabular-nums">฿{collection.collected.toLocaleString()}</p>
+            <div className="rounded-2xl bg-slate-50 p-2.5">
+              <p className="text-[11px] text-slate-500">ได้รับแล้ว</p>
+              <p className="text-sm font-bold text-slate-900 tabular-nums">฿{collection.collected.toLocaleString()}</p>
             </div>
             <div className="rounded-2xl bg-amber-50/80 p-2.5">
-              <p className="text-[10px] text-amber-800">ยังค้างเก็บ</p>
+              <p className="text-[11px] text-amber-800">ยังค้างเก็บ</p>
               <p className="text-sm font-bold text-amber-900 tabular-nums">฿{collection.outstanding.toLocaleString()}</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-2.5">
-              <p className="text-[10px] text-slate-500">เฉลี่ย/บิล</p>
+              <p className="text-[11px] text-slate-500">เฉลี่ย/บิล</p>
               <p className="text-sm font-bold text-slate-800 tabular-nums">฿{collection.avgOrderValue.toLocaleString()}</p>
             </div>
           </div>

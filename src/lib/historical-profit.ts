@@ -4,7 +4,9 @@
  * พร้อมระบบคำนวณแนวโน้มกำไรและตัวกรองช่วงเวลา (วันนี้, 7 วัน, เดือนนี้)
  */
 
-import { DailyProfitSummary } from './profit-aggregator';
+import { DailyProfitSummary, calculateDailyProfit } from './profit-aggregator';
+import { FuelConfig } from './fuel-calc';
+import { Order, ShoppingItem } from '@/types/order';
 
 export interface DailyProfitRecord {
   date: string; // 'YYYY-MM-DD'
@@ -268,4 +270,59 @@ export function getProfitAnalyticsByPeriod(
     daysRecorded,
     dailyTrends
   };
+}
+
+/** The day an order belongs to: the local date it was created (fallback: today). */
+export function orderDate(order: Pick<Order, 'createdAt'>, today: string = toLocalDateStr()): string {
+  const d = order.createdAt ? new Date(order.createdAt) : null;
+  return d && !isNaN(d.getTime()) ? toLocalDateStr(d) : today;
+}
+
+/** Orders created on one local day. A day's profit counts only these (yesterday's leftovers don't leak in). */
+export function ordersOnDate(orders: Order[], date: string, today: string = toLocalDateStr()): Order[] {
+  return orders.filter(o => orderDate(o, today) === date);
+}
+
+/**
+ * Re-save one history record per order day from that day's orders only.
+ * Travel cost is today's trip; past days keep the travel cost they recorded on their own day.
+ */
+export function syncSnapshotsFromOrders(
+  orders: Order[],
+  fuelConfig: FuelConfig,
+  manualShoppingItems: ShoppingItem[] = [],
+  today: string = toLocalDateStr()
+): void {
+  const byDate = new Map<string, Order[]>();
+  for (const o of orders) {
+    const d = orderDate(o, today);
+    byDate.set(d, [...(byDate.get(d) || []), o]);
+  }
+
+  // no orders today → no record for today (travel alone would show a fake loss)
+  if (!byDate.has(today) && getProfitRecordByDate(today)) deleteProfitRecord(today);
+
+  const noTravel: FuelConfig = { ...fuelConfig, distanceKm: 0, otherExpenses: 0 };
+  for (const [date, list] of byDate) {
+    if (date === today) {
+      saveDailyProfitSnapshot(date, calculateDailyProfit(list, fuelConfig, manualShoppingItems));
+      continue;
+    }
+    const base = calculateDailyProfit(list, noTravel);
+    const prev = getProfitRecordByDate(date);
+    const fuel = prev?.totalFuelCost || 0;
+    const other = prev?.totalOtherExpense || 0;
+    const net = base.grossProfit - fuel - other;
+    const pct = base.totalRevenue > 0 ? Math.round((net / base.totalRevenue) * 1000) / 10 : 0;
+    saveDailyProfitSnapshot(date, {
+      ...base,
+      totalFuelCost: fuel,
+      totalOtherExpense: other,
+      totalTransportExpense: fuel + other,
+      totalExpenses: base.totalProduceCost + fuel + other,
+      netProfit: net,
+      profitMarginPercent: pct,
+      netMarginPercent: pct
+    });
+  }
 }

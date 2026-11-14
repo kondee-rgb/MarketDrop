@@ -1402,3 +1402,47 @@ describe('21. Drag-to-reorder (delivery + shopping)', () => {
     expect(next.map(x => [x.id, x.stopNumber])).toEqual([['c', 1], ['a', 2], ['b', 3]]);
   });
 });
+
+describe('22. Daily profit counts only that day\'s orders', () => {
+  const mk = (id: string, created: Date, total: number, cost: number) =>
+    ({
+      id, stopNumber: 1, houseNumber: '1', soi: '', customerName: id, phone: '', notes: '', deliveredAt: null,
+      totalAmount: total, paymentStatus: 'COD', collectedAmount: 0, paymentMethod: null, deliveryStatus: 'PENDING',
+      createdAt: created.toISOString(), updatedAt: '',
+      items: [{ id: id + 'i', name: 'ของทดสอบ' + id, quantity: 1, unit: 'ชิ้น', price: total, costPrice: cost }]
+    }) as Order;
+
+  it('splits orders by their creation day and keeps past travel cost', async () => {
+    const h = await import('../src/lib/historical-profit');
+    h.clearProfitHistory();
+    const today = '2026-11-15';
+    const yesterdayOrder = mk('y', new Date(2026, 10, 14, 18, 0), 200, 120);
+    const todayOrder = mk('t', new Date(2026, 10, 15, 6, 0), 300, 180);
+
+    // yesterday was recorded on its own day with ฿40 of travel
+    h.saveDailyProfitSnapshot('2026-11-14', {
+      totalRevenue: 200, totalProduceCost: 120, grossProfit: 80, grossProduceProfit: 80, grossMarginPercent: 40,
+      totalFuelCost: 30, totalOtherExpense: 10, totalTransportExpense: 40, totalExpenses: 160, netProfit: 40,
+      profitMarginPercent: 20, netMarginPercent: 20, totalDeliveredOrders: 0, totalOrders: 1, orderCount: 1,
+      itemsBreakdown: [], fuelResult: { litersUsed: 0, fuelCost: 30, otherExpenses: 10, totalExpense: 40, costPerKm: 0 }
+    });
+
+    expect(h.ordersOnDate([yesterdayOrder, todayOrder], today, today).map(o => o.id)).toEqual(['t']);
+
+    h.syncSnapshotsFromOrders(
+      [yesterdayOrder, todayOrder],
+      { distanceKm: 14, consumptionKmPerLiter: 14, fuelPricePerLiter: 50, otherExpenses: 0 },
+      [],
+      today
+    );
+    const t = h.getProfitRecordByDate(today)!;
+    expect([t.orderCount, t.totalRevenue, t.totalProduceCost, t.totalFuelCost, t.netProfit]).toEqual([1, 300, 180, 50, 70]);
+    const y = h.getProfitRecordByDate('2026-11-14')!;
+    expect([y.orderCount, y.totalRevenue, y.totalFuelCost, y.netProfit]).toEqual([1, 200, 30, 40]);
+
+    // no orders today any more → today's record goes away (fuel alone isn't a real loss)
+    h.syncSnapshotsFromOrders([yesterdayOrder], { distanceKm: 14, consumptionKmPerLiter: 14, fuelPricePerLiter: 50, otherExpenses: 0 }, [], today);
+    expect(h.getProfitRecordByDate(today)).toBeNull();
+    h.clearProfitHistory();
+  });
+});

@@ -359,10 +359,10 @@ export function ShoppingView({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold font-display tracking-tight text-slate-900 leading-tight">
-                ของที่ต้องซื้อจากตลาด
+                ของที่ต้องซื้อ
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                รวมของสดจากทุกบ้านเพื่อเหมาซื้อในตลาดสด
+              <p className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                ซื้อแล้ว {boughtItems}/{totalItems} รายการ
               </p>
             </div>
           </div>
@@ -378,14 +378,8 @@ export function ShoppingView({
         </div>
 
         {/* Progress Bar */}
-        <div className="mt-3.5 pt-3 border-t border-slate-100">
-          <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="text-slate-500 font-medium">ความคืบหน้าการซื้อ</span>
-            <span className="font-bold text-emerald-800">
-              ซื้อแล้ว {boughtItems}/{totalItems} ({percentComplete}%)
-            </span>
-          </div>
-          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200/60">
+        <div className="mt-3" role="progressbar" aria-valuenow={percentComplete} aria-valuemin={0} aria-valuemax={100} aria-label="ความคืบหน้าการซื้อ">
+          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
             <div
               className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
               style={{ width: `${percentComplete}%` }}
@@ -438,7 +432,6 @@ export function ShoppingView({
               : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <span>🥗</span>
           <span>ทั้งหมด</span>
           <span className="text-[10px] opacity-80">({totalItems})</span>
         </button>
@@ -465,46 +458,42 @@ export function ShoppingView({
         })}
       </div>
 
-      {/* View Layout Toggle: Stall View vs List View */}
-      <div className="flex items-center justify-between bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80">
-        <button
-          type="button"
-          onClick={() => setShoppingLayout('stall')}
-          className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-            shoppingLayout === 'stall'
-              ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <Store className="w-3.5 h-3.5 text-emerald-600" />
-          <span>🏪 จัดตามแผงค้า (Stall View)</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setShoppingLayout('list')}
-          className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-            shoppingLayout === 'list'
-              ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
-          <span>📋 รายการรวมทั้งหมด (List View)</span>
-        </button>
+      {/* Layout toggle + reorder, one row */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 grid grid-cols-2 gap-1 p-1 rounded-2xl bg-slate-200/60" role="tablist" aria-label="รูปแบบรายการ">
+          {([
+            { id: 'stall', label: 'แผงค้า', Icon: Store },
+            { id: 'list', label: 'รายการรวม', Icon: CheckSquare }
+          ] as const).map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={shoppingLayout === id}
+              onClick={() => setShoppingLayout(id)}
+              className={`py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all ${
+                shoppingLayout === id ? 'bg-white text-slate-900 font-semibold shadow-sm' : 'text-slate-600 font-medium'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </div>
+        {onMoveItem && filteredItems.length > 1 && (
+          <button
+            type="button"
+            onClick={() => setReorderMode(v => !v)}
+            aria-pressed={reorderMode}
+            className={`min-h-10 px-3 rounded-2xl text-xs font-medium flex items-center gap-1.5 ${
+              reorderMode ? 'bg-emerald-600 text-white' : 'bg-white ring-1 ring-slate-200 text-slate-700'
+            }`}
+          >
+            {reorderMode ? <Check className="w-3.5 h-3.5" /> : <GripVertical className="w-3.5 h-3.5" />}
+            {reorderMode ? 'เสร็จ' : 'จัดลำดับ'}
+          </button>
+        )}
       </div>
-
-      {onMoveItem && filteredItems.length > 1 && (
-        <button
-          type="button"
-          onClick={() => setReorderMode(v => !v)}
-          className={`w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 ${
-            reorderMode ? 'bg-emerald-600 text-white' : 'bg-white ring-1 ring-slate-200 text-slate-700'
-          }`}
-        >
-          {reorderMode ? <Check className="w-3.5 h-3.5" /> : <GripVertical className="w-3.5 h-3.5" />}
-          {reorderMode ? 'เสร็จ' : 'ลากจัดลำดับรายการเอง'}
-        </button>
-      )}
 
       {/* Quick Add Form Drawer */}
       {showAddForm && (
@@ -693,7 +682,7 @@ export function ShoppingView({
                             {item.name}
                           </h4>
                           <p className="text-[11px] text-slate-400 mt-0.5">
-                            แตะเพื่อดูการแบ่งส่ง {item.allocations?.length ? `(${item.allocations.length} บ้าน)` : ''}
+                            {item.allocations?.length ? `${item.allocations.length} บ้าน` : 'ยังไม่ได้แบ่งบ้าน'}
                           </p>
                         </div>
                       </div>
