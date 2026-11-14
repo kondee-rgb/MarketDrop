@@ -82,6 +82,23 @@ export default function MarketDropApp() {
     setBoughtShoppingIds(shopState.boughtItemIds || []);
     setManualShoppingItems(shopState.manualItems || []);
 
+    // Sync default webhook URL from server if local is empty
+    fetch('/api/sheets/sync')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.webhookUrl) {
+          setSheetsConfig(prev => {
+            if (!prev.webhookUrl) {
+              const updated = { ...prev, webhookUrl: data.webhookUrl };
+              saveSheetsConfig(updated);
+              return updated;
+            }
+            return prev;
+          });
+        }
+      })
+      .catch(() => {});
+
     setIsMounted(true);
   }, []);
 
@@ -362,6 +379,14 @@ export default function MarketDropApp() {
     setSheetsConfig(cfg);
     saveSheetsConfig(cfg);
     setSyncResultMsg('บันทึกการตั้งค่า Google Sheets เรียบร้อย');
+    // Broadcast / Save to server so other devices get it too!
+    if (cfg.webhookUrl) {
+      fetch('/api/sheets/sync', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhookUrl: cfg.webhookUrl })
+      }).catch(() => {});
+    }
     if (cfg.autoSync) {
       performSync(orders, true);
     }
