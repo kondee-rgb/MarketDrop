@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Sparkles, Plus, Trash2, Check, AlertCircle, ClipboardList, CheckCircle2 } from 'lucide-react';
+import { X, Sparkles, Plus, Trash2, Check, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { parseBulkOrderText } from '@/lib/line-parser';
 import { Order, OrderItem, ParsedOrderDraft } from '@/types/order';
 

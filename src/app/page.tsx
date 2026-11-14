@@ -24,7 +24,6 @@ import {
 import {
   loadStoredOrders,
   saveStoredOrders,
-  clearStoredOrders,
   hardResetAllData,
   loadSheetsConfig,
   saveSheetsConfig,
@@ -33,12 +32,11 @@ import {
 } from '@/lib/storage';
 import { sortOrders, reorderOrders } from '@/lib/natural-sort';
 import { syncToGoogleSheets } from '@/lib/sheets';
-import { INITIAL_SAMPLE_ORDERS } from '@/lib/sample-data';
+
 import {
   aggregateShoppingList,
   loadShoppingState,
   saveShoppingState,
-  detectCategory,
   allocateItemToHouse,
   removeAllocationFromHouse,
   applyItemOrder,

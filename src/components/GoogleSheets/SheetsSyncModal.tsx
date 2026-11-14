@@ -8,11 +8,9 @@ import {
   Download,
   Copy,
   Check,
-  ExternalLink,
   RefreshCw,
   HelpCircle,
-  CheckCircle2,
-  AlertCircle
+  CheckCircle2
 } from 'lucide-react';
 import { GoogleSheetsConfig, Order } from '@/types/order';
 import { exportOrdersToCsv, SAMPLE_APPS_SCRIPT_CODE } from '@/lib/sheets';

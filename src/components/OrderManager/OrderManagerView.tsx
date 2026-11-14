@@ -9,7 +9,6 @@ import {
   ListFilter,
   Search,
   Download,
-  UploadCloud,
   FileSpreadsheet,
   Trash2
 } from 'lucide-react';

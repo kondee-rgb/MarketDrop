@@ -8,15 +8,12 @@ import {
   Square,
   CheckCircle2,
   AlertCircle,
-  Clock,
   ArrowRight,
   ShieldCheck,
   RotateCcw,
-  Building,
-  Home,
   Bell
 } from 'lucide-react';
-import { Order, OrderItem } from '@/types/order';
+import { Order } from '@/types/order';
 import { getLocationById } from '@/lib/locations';
 import { DeliveryNotifyModal } from './DeliveryNotifyModal';
 

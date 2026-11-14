@@ -1,4 +1,4 @@
-import { Order, OrderItem, ShoppingItem, ShoppingAllocation } from '@/types/order';
+import { Order, OrderItem, ShoppingItem } from '@/types/order';
 import { lookupPriceBook } from './price-book';
 
 /**

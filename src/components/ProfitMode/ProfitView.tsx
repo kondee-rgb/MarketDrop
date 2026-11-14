@@ -5,7 +5,6 @@ import { TripPlanner } from './TripPlanner';
 import { MoneySplitBar, ProfitTrendChart, TopItemBars } from './ProfitCharts';
 import { DayOrders } from './DayOrders';
 import {
-  DollarSign,
   Fuel,
   ShoppingCart,
   Plus,
@@ -21,7 +20,6 @@ import {
   Search,
   BookOpen,
   X,
-  HelpCircle,
   Calendar,
   BarChart3,
   Wallet,

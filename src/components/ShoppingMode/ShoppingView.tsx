@@ -10,19 +10,12 @@ import {
   CheckCircle2,
   Camera,
   Search,
-  Filter,
   ArrowRight,
   X,
   Home,
-  MapPin,
-  Star,
-  Building,
-  User,
   Check,
   GripVertical,
   ChevronRight,
-  Phone,
-  Tag,
   Store
 } from 'lucide-react';
 import { Order, ShoppingItem } from '@/types/order';
@@ -30,8 +23,7 @@ import { SortableList } from '@/components/SortableList';
 import {
   CATEGORY_LABELS,
   HouseAllocationParams,
-  groupShoppingItemsByShop,
-  ShopStallGroup
+  groupShoppingItemsByShop
 } from '@/lib/shopping-aggregator';
 import { REAL_LOCATIONS, getLocationById, LocationConfig } from '@/lib/locations';
 import {
@@ -871,6 +863,21 @@ export function ShoppingView({
                     >
                       {allocatingItem.bought ? '✓ ซื้อแล้ว' : 'ยังไม่ได้ซื้อ'}
                     </button>
+                    {/* only hand-added items can be removed here; order items come from orders */}
+                    {allocatingItem.id.startsWith('manual_') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`ลบ "${allocatingItem.name}" ออกจากรายการซื้อ?`)) {
+                            onRemoveManualItem(allocatingItem.id);
+                            setAllocatingItem(null);
+                          }
+                        }}
+                        className="text-xs px-2 py-0.5 rounded-lg font-medium text-rose-600 hover:bg-rose-50"
+                      >
+                        ลบรายการ
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -878,6 +885,7 @@ export function ShoppingView({
               <button
                 type="button"
                 onClick={() => setAllocatingItem(null)}
+                aria-label="ปิด"
                 className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
               >
                 <X className="w-5 h-5" />

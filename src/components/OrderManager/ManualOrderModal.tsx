@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Check, UserPlus, Edit3, Star, MapPin, Building, Phone, User } from 'lucide-react';
+import { X, Plus, Trash2, Check, UserPlus, Edit3, Star, MapPin, Building } from 'lucide-react';
 import { Order, OrderItem, PaymentStatus } from '@/types/order';
 import {
   REAL_LOCATIONS,
