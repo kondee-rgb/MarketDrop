@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const raw = await geminiImageToJson(SLIP_PROMPT, imageBase64, String(mimeType), apiKey, true);
+    const raw = await geminiImageToJson(SLIP_PROMPT, imageBase64, String(mimeType), apiKey);
     return NextResponse.json({ success: true, data: sanitizeSlipData(raw) });
   } catch (error: unknown) {
     console.error('Verify slip error:', error);

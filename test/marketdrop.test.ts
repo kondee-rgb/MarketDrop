@@ -1120,3 +1120,59 @@ describe('17. Slip OCR Verification, Quick Messages, Collection Stats & Local Da
     expect(toLocalDateStr(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
   });
 });
+
+describe('18. Gemini model fallback', () => {
+  const ok = (text: string) =>
+    new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] } }] }), { status: 200 });
+
+  const withFetch = async (handler: (model: string) => Response, run: () => Promise<void>) => {
+    const realFetch = globalThis.fetch;
+    const realError = console.error;
+    const called: string[] = [];
+    globalThis.fetch = (async (url: string) => {
+      const model = String(url).split('/models/')[1].split(':')[0];
+      called.push(model);
+      return handler(model);
+    }) as unknown as typeof fetch;
+    console.error = () => {};
+    try {
+      await run();
+    } finally {
+      globalThis.fetch = realFetch;
+      console.error = realError;
+    }
+    return called;
+  };
+
+  it('moves to the next model when one is busy, in the configured order', async () => {
+    const { geminiImageToJson, GEMINI_MODELS } = await import('../src/lib/gemini');
+    let result: unknown;
+    const called = await withFetch(
+      m => (m === GEMINI_MODELS[0] ? new Response('busy', { status: 503 }) : ok('{"ok":true}')),
+      async () => {
+        result = await geminiImageToJson('p', 'data:image/jpeg;base64,AAAA', 'image/jpeg', 'k');
+      }
+    );
+    expect(result).toEqual({ ok: true });
+    expect(called).toEqual(GEMINI_MODELS.slice(0, 2));
+  });
+
+  it('gives a Thai "busy" message after every model fails, and stops at once on a 400', async () => {
+    const { geminiImageToJson, GEMINI_MODELS, GEMINI_BUSY_MESSAGE } = await import('../src/lib/gemini');
+    const allBusy = await withFetch(
+      () => new Response('busy', { status: 503 }),
+      async () => {
+        await expect(geminiImageToJson('p', 'AAAA', 'image/jpeg', 'k')).rejects.toThrow(GEMINI_BUSY_MESSAGE);
+      }
+    );
+    expect(allBusy).toEqual(GEMINI_MODELS);
+
+    const badRequest = await withFetch(
+      () => new Response('bad image', { status: 400 }),
+      async () => {
+        await expect(geminiImageToJson('p', 'AAAA', 'image/jpeg', 'k')).rejects.toThrow('Gemini 400');
+      }
+    );
+    expect(badRequest.length).toBe(1);
+  });
+});
