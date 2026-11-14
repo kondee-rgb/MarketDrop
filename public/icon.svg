@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#0d9488" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="128" fill="url(#grad)" />
+  <circle cx="256" cy="256" r="190" fill="#0f172a" opacity="0.35" />
+  <!-- Motorcycle Icon -->
+  <g fill="none" stroke="#ffffff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" transform="translate(64, 96)">
+    <!-- Wheels -->
+    <circle cx="60" cy="240" r="44" stroke="#ffffff" stroke-width="28" fill="#0f172a" />
+    <circle cx="320" cy="240" r="44" stroke="#ffffff" stroke-width="28" fill="#0f172a" />
+    <!-- Frame -->
+    <path d="M60 240 L150 240 L210 130 L130 130 L100 180" />
+    <path d="M150 240 L240 180 L320 240" />
+    <path d="M240 180 L290 80 L330 80" />
+    <!-- Delivery Box -->
+    <rect x="70" y="70" width="90" height="80" rx="14" fill="#10b981" stroke="#ffffff" stroke-width="20" />
+  </g>
+</svg>
