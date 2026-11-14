@@ -74,7 +74,7 @@ export function SheetsSyncModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-xl border border-emerald-100 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-3xl shadow-xl border border-emerald-100 w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden">
         {/* Header - Pastel */}
         <div className="px-5 py-4 bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/70 border-b border-emerald-100 text-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2.5">

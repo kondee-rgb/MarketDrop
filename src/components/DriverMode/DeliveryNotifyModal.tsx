@@ -114,7 +114,7 @@ export function DeliveryNotifyModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-xl border border-emerald-100 w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-6 duration-300 pb-safe">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-xl border border-emerald-100 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-6 duration-300 pb-safe">
         {/* Grabber */}
         <div className="sm:hidden flex justify-center pt-2">
           <span className="w-10 h-1.5 rounded-full bg-slate-200" />

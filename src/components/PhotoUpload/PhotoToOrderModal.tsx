@@ -396,7 +396,7 @@ export function PhotoToOrderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-xl border border-emerald-100 w-full max-w-3xl max-h-[94vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-xl border border-emerald-100 w-full max-w-3xl max-h-[94dvh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
         {/* Header - Pastel */}
         <div className="px-5 py-3.5 bg-gradient-to-r from-emerald-50/90 via-white to-teal-50/70 text-slate-800 border-b border-emerald-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5">

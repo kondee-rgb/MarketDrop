@@ -416,7 +416,7 @@ export default function MarketDropApp() {
 
   if (!isMounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f4f5f7] text-slate-800">
+      <div className="min-h-dvh flex items-center justify-center bg-[#f4f5f7] text-slate-800">
         <div className="flex flex-col items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 border border-emerald-200 animate-pulse flex items-center justify-center font-bold text-xl">
             🛵
@@ -428,7 +428,7 @@ export default function MarketDropApp() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f4f5f7] text-slate-800 font-sans pb-20 md:pb-6">
+    <div className="min-h-dvh flex flex-col bg-[#f4f5f7] text-slate-800 font-sans pb-20 md:pb-6">
       {/* App Header */}
       <Header
         activeTab={activeTab}
@@ -444,7 +444,7 @@ export default function MarketDropApp() {
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6">
         {/* Route Summary Bar: แสดงเฉพาะในแท็บจัดการ (Admin) เท่านั้น ตามที่ผู้ใช้ระบุ */}
-        <div key={activeTab} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div key={activeTab} className="animate-in fade-in duration-150">
         {activeTab === 'admin' && <RouteSummary orders={orders} />}
 
         {/* TAB 1: ของที่ต้องซื้อ (Market Shopping List) */}

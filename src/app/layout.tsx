@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default', // dark status-bar text over the light header (translucent made it white-on-white)
     title: 'MarketDrop'
   },
   icons: {
@@ -27,10 +27,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // zoom stays allowed (accessibility); inputs are 16px on touch so iOS doesn't auto-zoom
   viewportFit: 'cover',
-  themeColor: '#f4f5f7'
+  interactiveWidget: 'resizes-content',
+  colorScheme: 'light',
+  themeColor: '#ffffff' // matches the header
 };
 
 export default function RootLayout({

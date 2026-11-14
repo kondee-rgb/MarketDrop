@@ -732,7 +732,7 @@ export function ProfitView({
       {/* MODAL 2: Full Price Memory Book Drawer */}
       {isPriceBookOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 shadow-2xl border border-slate-100 space-y-4 animate-in slide-in-from-bottom-4 duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90dvh] overflow-y-auto p-5 shadow-2xl border border-slate-100 space-y-4 animate-in slide-in-from-bottom-4 duration-200">
             {/* Header */}
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
@@ -826,7 +826,7 @@ export function ProfitView({
             </form>
 
             {/* List of Entries */}
-            <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+            <div className="space-y-2 max-h-[40dvh] overflow-y-auto">
               {filteredPriceBook.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400">
                   ไม่พบรายการในสมุดราคา

@@ -837,7 +837,7 @@ export function ShoppingView({
       {/* GRAB-STYLE ITEM BOTTOM SHEET MODAL: "ส่งให้ใคร ที่ไหน" */}
       {allocatingItem && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100 space-y-4 p-5 animate-in slide-in-from-bottom-6 duration-200">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[90dvh] overflow-y-auto shadow-2xl border border-slate-100 space-y-4 p-5 animate-in slide-in-from-bottom-6 duration-200">
             {/* Sheet Header */}
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">

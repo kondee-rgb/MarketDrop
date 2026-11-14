@@ -96,7 +96,7 @@ export function PromptPayQrModal({ isOpen, onClose, amount, title }: PromptPayQr
         role="dialog"
         aria-modal="true"
         aria-label="QR พร้อมเพย์"
-        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-xl w-full max-w-sm max-h-[94vh] overflow-y-auto animate-in slide-in-from-bottom-6 duration-300 pb-safe"
+        className="bg-white rounded-t-3xl sm:rounded-3xl shadow-xl w-full max-w-sm max-h-[94dvh] overflow-y-auto animate-in slide-in-from-bottom-6 duration-300 pb-safe"
       >
         <div className="sm:hidden flex justify-center pt-2">
           <span className="w-10 h-1.5 rounded-full bg-slate-200" />

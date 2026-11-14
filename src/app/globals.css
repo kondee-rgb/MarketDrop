@@ -36,11 +36,31 @@ html, body, button, input, select, textarea {
 html {
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
+  overscroll-behavior: none; /* app, not a document: no pull-to-refresh / page rubber-band */
 }
 
 body {
-  overscroll-behavior-y: none;
+  overscroll-behavior: none;
   font-feature-settings: "kern" 1;
+}
+
+/* Scrollable sheets keep their own bounce but don't drag the page behind them */
+.overflow-y-auto {
+  overscroll-behavior: contain;
+}
+
+/* iOS zooms into inputs under 16px; zoom is allowed (a11y), so make touch inputs 16px instead */
+@media (pointer: coarse) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
+
+/* Controls aren't text: no long-press selection or callout on them (content stays selectable) */
+button, [role="button"], [role="tab"] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 h1, h2, h3, h4, h5, h6, .font-display {
@@ -127,7 +147,7 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 .animate-grow {
   transform-origin: left;
-  animation: md-grow 600ms var(--ease-ios) both;
+  animation: md-grow 250ms var(--ease-ios) both; /* charts are seen many times a day: keep it brief */
 }
 
 @media (prefers-reduced-motion: reduce) {
