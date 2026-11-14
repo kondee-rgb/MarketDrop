@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Phone,
   Navigation,
@@ -13,10 +13,12 @@ import {
   ShieldCheck,
   RotateCcw,
   Building,
-  Home
+  Home,
+  Bell
 } from 'lucide-react';
 import { Order, OrderItem } from '@/types/order';
 import { getLocationById } from '@/lib/locations';
+import { DeliveryNotifyModal } from './DeliveryNotifyModal';
 
 interface DriverStopCardProps {
   order: Order;
@@ -31,6 +33,7 @@ export function DriverStopCard({
   onOpenConfirmModal,
   onRevertDelivery
 }: DriverStopCardProps) {
+  const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
   const isDelivered = order.deliveryStatus === 'DELIVERED';
   const isPaid = order.paymentStatus === 'PAID';
   const checkedItemsCount = order.items.filter(it => it.checked).length;
@@ -139,29 +142,39 @@ export function DriverStopCard({
           </div>
         </div>
 
-        {/* Quick Driver Action Buttons: Call & Maps */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
+        {/* Quick Driver Action Buttons: Call, Maps & Pre-Arrival Alert */}
+        <div className="grid grid-cols-3 gap-2 pt-1">
           {order.phone ? (
             <a
               href={`tel:${order.phone}`}
-              className="flex items-center justify-center gap-2 py-3 px-3 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-2xl font-bold text-xs sm:text-sm active:scale-95 transition-all"
+              className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-2xl font-bold text-xs sm:text-sm active:scale-95 transition-all"
             >
               <Phone className="w-4 h-4 text-blue-600" />
-              <span>โทร {order.phone}</span>
+              <span>โทร</span>
             </a>
           ) : (
-            <div className="flex items-center justify-center gap-1 py-3 px-3 bg-slate-50 text-slate-400 rounded-2xl text-xs font-medium border border-slate-200">
-              ไม่มีเบอร์โทร
+            <div className="flex items-center justify-center gap-1 py-2.5 px-2 bg-slate-50 text-slate-400 rounded-2xl text-xs font-medium border border-slate-200">
+              ไม่มีเบอร์
             </div>
           )}
 
           <button
             type="button"
             onClick={handleOpenGoogleMaps}
-            className="flex items-center justify-center gap-2 py-3 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-2xl font-bold text-xs sm:text-sm active:scale-95 transition-all"
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 rounded-2xl font-bold text-xs sm:text-sm active:scale-95 transition-all"
           >
             <Navigation className="w-4 h-4 text-emerald-600" />
-            <span>เปิด Google Maps</span>
+            <span>แผนที่</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsNotifyModalOpen(true)}
+            className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-2xl font-bold text-xs sm:text-sm active:scale-95 transition-all shadow-xs"
+            title="แจ้งเตือนลูกค้าก่อนส่งถึงบ้าน (LINE / SMS / Copy)"
+          >
+            <Bell className="w-4 h-4 text-emerald-600" />
+            <span>แจ้งเตือน</span>
           </button>
         </div>
 
@@ -265,6 +278,13 @@ export function DriverStopCard({
           )}
         </div>
       </div>
+
+      {/* Customer Pre-Arrival Alert Modal */}
+      <DeliveryNotifyModal
+        order={order}
+        isOpen={isNotifyModalOpen}
+        onClose={() => setIsNotifyModalOpen(false)}
+      />
     </div>
   );
 }

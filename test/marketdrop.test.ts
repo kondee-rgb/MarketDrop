@@ -852,3 +852,205 @@ describe('13. Profit & Loss (P&L) Aggregation Engine Tests', () => {
     expect(morningGlory?.costPrice).toBe(15);
   });
 });
+
+describe('14. One-Click Customer Notification Tests', () => {
+  it('should generate pre-arrival alert for COD and PAID orders, and produce SMS and LINE links', async () => {
+    const {
+      generateDeliveryAlertText,
+      generateSmsLink,
+      generateLineShareLink,
+      getDeliveryNotificationData
+    } = await import('../src/lib/customer-notify');
+
+    const codOrder: Order = {
+      id: 'ord-notify-1',
+      stopNumber: 1,
+      houseNumber: '51/104',
+      soi: '',
+      locationId: 'ivy-river',
+      building: 'ตึก A',
+      customerName: 'คุณนก',
+      phone: '081-234-5678',
+      items: [
+        { id: 'i1', name: 'หมูบด', quantity: 1, unit: 'กก.' },
+        { id: 'i2', name: 'ผักบุ้ง', quantity: 2, unit: 'กำ' }
+      ],
+      totalAmount: 180,
+      paymentStatus: 'COD',
+      collectedAmount: 0,
+      paymentMethod: null,
+      deliveryStatus: 'IN_TRANSIT',
+      deliveredAt: null,
+      notes: 'วางไว้โต๊ะหน้าบ้าน',
+      createdAt: '',
+      updatedAt: ''
+    };
+
+    const codText = generateDeliveryAlertText(codOrder, { driverName: 'สมศักดิ์', estimatedMinutes: 10 });
+    expect(codText).toContain('ไอวี่ริเวอร์ ตึก A 51/104');
+    expect(codText).toContain('หมูบด 1 กก., ผักบุ้ง 2 กำ');
+    expect(codText).toContain('ยอดเก็บเงินปลายทาง: 180 บาท');
+    expect(codText).toContain('สแกนจ่าย QR');
+    expect(codText).toContain('คนขับ: สมศักดิ์');
+
+    // Test PAID order text
+    const paidOrder: Order = {
+      ...codOrder,
+      paymentStatus: 'PAID'
+    };
+    const paidText = generateDeliveryAlertText(paidOrder);
+    expect(paidText).toContain('ชำระเงินเรียบร้อยแล้ว (ยอด 180 บาท)');
+    expect(paidText).not.toContain('ยอดเก็บเงินปลายทาง');
+
+    // Test SMS link and LINE link
+    const smsLink = generateSmsLink('081-234-5678', codText);
+    expect(smsLink.startsWith('sms:0812345678?body=')).toBe(true);
+
+    const lineLink = generateLineShareLink(codText);
+    expect(lineLink.startsWith('https://line.me/R/msg/text/?')).toBe(true);
+
+    // Test full notification payload
+    const payload = getDeliveryNotificationData(codOrder);
+    expect(payload.phone).toBe('0812345678');
+    expect(payload.smsUrl).toBeDefined();
+    expect(payload.lineShareUrl).toBeDefined();
+    expect(payload.totalAmount).toBe(180);
+  });
+});
+
+describe('15. Historical Profit Analytics & Snapshots Tests', () => {
+  it('should save daily profit snapshots, retrieve by date, and compute period analytics with trends', async () => {
+    const {
+      saveDailyProfitSnapshot,
+      getProfitRecordByDate,
+      getProfitAnalyticsByPeriod,
+      clearProfitHistory
+    } = await import('../src/lib/historical-profit');
+
+    clearProfitHistory();
+
+    const mockSummaryDay1 = {
+      totalRevenue: 1000,
+      totalProduceCost: 700,
+      grossProfit: 300,
+      grossProduceProfit: 300,
+      grossMarginPercent: 30,
+      totalFuelCost: 100,
+      totalOtherExpense: 20,
+      totalTransportExpense: 120,
+      totalExpenses: 820,
+      netProfit: 180,
+      profitMarginPercent: 18,
+      netMarginPercent: 18,
+      totalDeliveredOrders: 5,
+      totalOrders: 5,
+      orderCount: 5,
+      fuelResult: { litersUsed: 2.6, fuelCost: 100, otherExpenses: 20, totalExpense: 120, costPerKm: 4 },
+      itemsBreakdown: [{ name: 'หมูบด', category: 'meat' as const, shopName: 'เจ๊พร', quantity: 5, unit: 'กก.', costPrice: 120, sellingPrice: 150, totalRevenue: 750, totalCost: 600, profit: 150, margin: 20, marginPercent: 20, orderCount: 3, isCostEstimated: false }]
+    };
+
+    const mockSummaryDay2 = {
+      ...mockSummaryDay1,
+      totalRevenue: 1500,
+      totalProduceCost: 1000,
+      grossProfit: 500,
+      grossProduceProfit: 500,
+      netProfit: 380,
+      orderCount: 8,
+      totalOrders: 8
+    };
+
+    // Save 2 daily snapshots
+    saveDailyProfitSnapshot('2026-11-13', mockSummaryDay1);
+    saveDailyProfitSnapshot('2026-11-14', mockSummaryDay2);
+
+    // Retrieve by date
+    const record = getProfitRecordByDate('2026-11-14');
+    expect(record).toBeDefined();
+    expect(record?.totalRevenue).toBe(1500);
+    expect(record?.netProfit).toBe(380);
+    expect(record?.orderCount).toBe(8);
+
+    // Period Analytics: 'all'
+    const analyticsAll = getProfitAnalyticsByPeriod('all');
+    expect(analyticsAll.daysRecorded).toBe(2);
+    expect(analyticsAll.totalRevenue).toBe(2500); // 1000 + 1500
+    expect(analyticsAll.netProfit).toBe(560); // 180 + 380
+    expect(analyticsAll.totalOrders).toBe(13); // 5 + 8
+    expect(analyticsAll.averageDailyRevenue).toBe(1250);
+    expect(analyticsAll.dailyTrends.length).toBe(2);
+    expect(analyticsAll.dailyTrends[0].date).toBe('2026-11-13');
+    expect(analyticsAll.dailyTrends[1].date).toBe('2026-11-14');
+  });
+});
+
+describe('16. Store/Stall-based Shopping Consolidation Tests', () => {
+  it('should group shopping items by stalls and calculate stall completion', async () => {
+    const { groupShoppingItemsByShop } = await import('../src/lib/shopping-aggregator');
+
+    const sampleItems: ShoppingItem[] = [
+      {
+        id: 's1',
+        name: 'สันคอหมู',
+        category: 'meat',
+        totalQuantity: 2,
+        unit: 'กก.',
+        bought: false,
+        estimatedPrice: 280,
+        allocations: []
+      },
+      {
+        id: 's2',
+        name: 'หมูบด',
+        category: 'meat',
+        totalQuantity: 3,
+        unit: 'กก.',
+        bought: true,
+        estimatedPrice: 420,
+        allocations: []
+      },
+      {
+        id: 's3',
+        name: 'คะน้าฮ่องกง',
+        category: 'veg',
+        totalQuantity: 5,
+        unit: 'กก.',
+        bought: true,
+        estimatedPrice: 150,
+        allocations: []
+      },
+      {
+        id: 's4',
+        name: 'กวางตุ้ง',
+        category: 'veg',
+        totalQuantity: 3,
+        unit: 'กำ',
+        bought: true,
+        estimatedPrice: 45,
+        allocations: []
+      }
+    ];
+
+    const stallGroups = groupShoppingItemsByShop(sampleItems);
+    expect(stallGroups.length).toBe(2);
+
+    // Meat stall has 1 unbought item -> isCompleted: false
+    const meatStall = stallGroups.find(g => g.category === 'meat');
+    expect(meatStall).toBeDefined();
+    expect(meatStall?.items.length).toBe(2);
+    expect(meatStall?.totalItemsCount).toBe(2);
+    expect(meatStall?.boughtItemsCount).toBe(1);
+    expect(meatStall?.isCompleted).toBe(false);
+
+    // Veg stall has all items bought -> isCompleted: true
+    const vegStall = stallGroups.find(g => g.category === 'veg');
+    expect(vegStall).toBeDefined();
+    expect(vegStall?.items.length).toBe(2);
+    expect(vegStall?.boughtItemsCount).toBe(2);
+    expect(vegStall?.isCompleted).toBe(true);
+
+    // Verify incomplete stalls sort before completed stalls
+    expect(stallGroups[0].isCompleted).toBe(false);
+    expect(stallGroups[1].isCompleted).toBe(true);
+  });
+});

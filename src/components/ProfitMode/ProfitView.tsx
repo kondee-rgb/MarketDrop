@@ -19,7 +19,9 @@ import {
   Search,
   BookOpen,
   X,
-  HelpCircle
+  HelpCircle,
+  Calendar,
+  BarChart3
 } from 'lucide-react';
 import { Order, ShoppingItem, GoogleSheetsConfig } from '@/types/order';
 import { FuelConfig, getFuelConfig, saveFuelConfig } from '@/lib/fuel-calc';
@@ -36,6 +38,13 @@ import {
   ItemProfitDetail
 } from '@/lib/profit-aggregator';
 import { CATEGORY_LABELS } from '@/lib/shopping-aggregator';
+import {
+  getProfitAnalyticsByPeriod,
+  saveDailyProfitSnapshot,
+  AnalyticsPeriod,
+  PeriodProfitAnalytics,
+  DailyTrendPoint
+} from '@/lib/historical-profit';
 
 interface ProfitViewProps {
   orders: Order[];
@@ -77,6 +86,10 @@ export function ProfitView({
   // Notification message
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  // Historical Analytics state
+  const [selectedPeriod, setSelectedPeriod] = useState<AnalyticsPeriod>('today');
+  const [customDate, setCustomDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+
   useEffect(() => {
     setPriceBookEntries(getPriceBook());
   }, []);
@@ -101,6 +114,19 @@ export function ProfitView({
     orders,
     fuelConfig,
     manualShoppingItems
+  );
+
+  // Auto-save today's snapshot on profit summary changes
+  useEffect(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    saveDailyProfitSnapshot(todayStr, profitSummary);
+  }, [profitSummary]);
+
+  // Query analytics for selected period
+  const periodAnalytics: PeriodProfitAnalytics = getProfitAnalyticsByPeriod(
+    selectedPeriod,
+    customDate,
+    customDate
   );
 
   // Handle saving edited item cost/price
@@ -198,6 +224,46 @@ export function ProfitView({
         </div>
       )}
 
+      {/* Period Filter Tabs: วันนี้, 7 วัน, เดือนนี้, ทั้งหมด, เลือกวัน */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+        {[
+          { id: 'today', label: '☀️ วันนี้' },
+          { id: '7days', label: '📅 7 วันย้อนหลัง' },
+          { id: 'this_month', label: '📊 เดือนนี้' },
+          { id: 'all', label: '📈 ทั้งหมด' },
+          { id: 'custom', label: '🗓️ เลือกวัน' },
+        ].map(p => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => setSelectedPeriod(p.id as AnalyticsPeriod)}
+            className={`px-3 py-1.5 rounded-2xl font-bold whitespace-nowrap transition-all border flex items-center gap-1 ${
+              selectedPeriod === p.id
+                ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Date Picker for Custom Date Inspection */}
+      {selectedPeriod === 'custom' && (
+        <div className="bg-white rounded-2xl p-3 border border-slate-200/80 shadow-xs flex items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-bold text-slate-700">เลือกวันที่ต้องการดูย้อนหลัง:</span>
+          </div>
+          <input
+            type="date"
+            value={customDate}
+            onChange={e => setCustomDate(e.target.value)}
+            className="px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-semibold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+          />
+        </div>
+      )}
+
       {/* Hero P&L Card: Net Profit & Core Metrics */}
       <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-4">
         <div className="flex items-center justify-between">
@@ -210,7 +276,15 @@ export function ProfitView({
                 PROFIT & LOSS
               </span>
               <h2 className="text-lg sm:text-xl font-bold font-display text-slate-900 leading-tight">
-                สรุปกำไร-ขาดทุนวันนี้
+                {selectedPeriod === 'today'
+                  ? 'สรุปกำไร-ขาดทุนวันนี้'
+                  : selectedPeriod === '7days'
+                  ? 'สรุปกำไร-ขาดทุน (7 วันย้อนหลัง)'
+                  : selectedPeriod === 'this_month'
+                  ? 'สรุปกำไร-ขาดทุน (เดือนนี้)'
+                  : selectedPeriod === 'all'
+                  ? 'สรุปกำไร-ขาดทุน (ทั้งหมด)'
+                  : `สรุปกำไร-ขาดทุน วันที่ ${customDate}`}
               </h2>
             </div>
           </div>
@@ -241,12 +315,18 @@ export function ProfitView({
             💎 กำไรสุทธิ (หักค่าน้ำมันแล้ว)
           </p>
           <h1 className="text-3xl sm:text-4xl font-black text-emerald-700 font-display tracking-tight leading-none py-0.5">
-            ฿{profitSummary.netProfit.toLocaleString()}
+            ฿{(selectedPeriod === 'today' ? profitSummary.netProfit : periodAnalytics.netProfit).toLocaleString()}
           </h1>
           <div className="flex items-center justify-center gap-2 text-xs font-semibold text-emerald-800">
-            <span>อัตรากำไร: <strong>{profitSummary.netMarginPercent}%</strong></span>
+            <span>
+              อัตรากำไร: <strong>{selectedPeriod === 'today' ? profitSummary.netMarginPercent : periodAnalytics.profitMarginPercent}%</strong>
+            </span>
             <span>•</span>
-            <span>ส่งสำเร็จ: {profitSummary.totalDeliveredOrders}/{profitSummary.totalOrders} หลัง</span>
+            <span>
+              {selectedPeriod === 'today'
+                ? `ส่งสำเร็จ: ${profitSummary.totalDeliveredOrders}/${profitSummary.totalOrders} หลัง`
+                : `รวม ${periodAnalytics.totalOrders} ออเดอร์ (${periodAnalytics.daysRecorded} วัน)`}
+            </span>
           </div>
         </div>
 
@@ -256,7 +336,7 @@ export function ProfitView({
           <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center">
             <p className="text-[10px] font-bold text-slate-500 uppercase">💵 ยอดขายรวม</p>
             <p className="text-sm sm:text-base font-black text-slate-900 font-display mt-0.5">
-              ฿{profitSummary.totalRevenue.toLocaleString()}
+              ฿{(selectedPeriod === 'today' ? profitSummary.totalRevenue : periodAnalytics.totalRevenue).toLocaleString()}
             </p>
           </div>
 
@@ -264,7 +344,7 @@ export function ProfitView({
           <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center">
             <p className="text-[10px] font-bold text-slate-500 uppercase">🛒 ต้นทุนของสด</p>
             <p className="text-sm sm:text-base font-black text-rose-700 font-display mt-0.5">
-              ฿{profitSummary.totalProduceCost.toLocaleString()}
+              ฿{(selectedPeriod === 'today' ? profitSummary.totalProduceCost : periodAnalytics.totalProduceCost).toLocaleString()}
             </p>
           </div>
 
@@ -272,18 +352,102 @@ export function ProfitView({
           <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center">
             <p className="text-[10px] font-bold text-slate-500 uppercase">⛽ ค่าน้ำมัน</p>
             <p className="text-sm sm:text-base font-black text-amber-900 font-display mt-0.5">
-              ฿{profitSummary.totalTransportExpense.toLocaleString()}
+              ฿{(selectedPeriod === 'today' ? profitSummary.totalTransportExpense : periodAnalytics.totalFuelCost).toLocaleString()}
             </p>
           </div>
         </div>
+
+        {/* Daily Averages if Viewing Period with History */}
+        {selectedPeriod !== 'today' && periodAnalytics.daysRecorded > 1 && (
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <div className="bg-slate-50/90 border border-slate-200/70 rounded-xl p-2.5 text-center">
+              <span className="text-[10px] text-slate-500 block">เฉลี่ยยอดขายต่อวัน</span>
+              <strong className="text-xs text-slate-800 font-bold">
+                ฿{periodAnalytics.averageDailyRevenue.toLocaleString()}
+              </strong>
+            </div>
+            <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-xl p-2.5 text-center">
+              <span className="text-[10px] text-emerald-700 block">เฉลี่ยกำไรสุทธิต่อวัน</span>
+              <strong className="text-xs text-emerald-800 font-bold">
+                ฿{periodAnalytics.averageDailyNetProfit.toLocaleString()}
+              </strong>
+            </div>
+          </div>
+        )}
 
         {/* Gross Profit Callout */}
         <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50/80 px-3.5 py-2 rounded-xl border border-slate-200/60">
           <span>กำไรขั้นต้นจากของสด (ก่อนหักน้ำมัน):</span>
           <strong className="text-emerald-800 font-bold">
-            ฿{profitSummary.grossProfit.toLocaleString()} ({profitSummary.grossMarginPercent}%)
+            ฿{(selectedPeriod === 'today' ? profitSummary.grossProfit : periodAnalytics.grossProfit).toLocaleString()} ({selectedPeriod === 'today' ? profitSummary.grossMarginPercent : periodAnalytics.grossMarginPercent}%)
           </strong>
         </div>
+      </div>
+
+      {/* Daily Trends Visualization Bar */}
+      <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
+              <BarChart3 className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 font-display">
+                แนวโน้มกำไรรายวัน (Daily Profit Trends)
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                ประวัติยอดขายและกำไรสุทธิย้อนหลัง
+              </p>
+            </div>
+          </div>
+          {periodAnalytics.daysRecorded > 0 && (
+            <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
+              เฉลี่ย ฿{periodAnalytics.averageDailyNetProfit.toLocaleString()}/วัน
+            </span>
+          )}
+        </div>
+
+        {periodAnalytics.dailyTrends.length === 0 ? (
+          <div className="p-6 text-center text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+            ยังไม่มีประวัติกำไรในช่วงเวลาที่เลือก ระบบจะบันทึกอัตโนมัติในแต่ละวัน
+          </div>
+        ) : (
+          <div className="space-y-2 pt-1">
+            {periodAnalytics.dailyTrends.map(day => (
+              <div
+                key={day.date}
+                className="p-3 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center justify-between gap-3 text-xs"
+              >
+                <div className="w-24 font-bold text-slate-700 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{day.displayDate}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-normal pl-5">
+                    {day.orders} ออเดอร์
+                  </p>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between text-[11px] mb-1">
+                    <span className="text-slate-500">ขาย: ฿{day.revenue.toLocaleString()}</span>
+                    <span className="font-bold text-emerald-700">
+                      กำไร: ฿{day.netProfit.toLocaleString()} ({day.marginPercent}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden flex">
+                    <div
+                      className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${Math.min(100, Math.max(8, (day.netProfit / (day.revenue || 1)) * 100))}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Fuel & Travel Calculator Card */}

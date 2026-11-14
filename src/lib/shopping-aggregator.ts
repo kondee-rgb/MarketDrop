@@ -1,4 +1,5 @@
 import { Order, OrderItem, ShoppingItem, ShoppingAllocation } from '@/types/order';
+import { lookupPriceBook } from './price-book';
 
 /**
  * จัดหมวดหมู่ของสดอัตโนมัติตามชื่อสินค้า
@@ -336,4 +337,115 @@ export function reallocateItemHouse(
 ): Order[] {
   const afterRemove = removeAllocationFromHouse(orders, itemName, unit, fromOrderIdOrHouse);
   return allocateItemToHouse(afterRemove, itemName, unit, toAllocation);
+}
+
+/**
+ * กลุ่มร้านค้า / แผงค้าในตลาดสด (Stall / Shop Grouping)
+ * ช่วยให้เดินจ่ายตลาดทีละแผงได้สะดวก รวดเร็ว ไม่ต้องสลับไปมา
+ */
+export interface ShopStallGroup {
+  shopName: string; // เช่น "🥩 เขียงหมูเจ๊พร", "🥬 แผงผักสด"
+  cleanShopName: string; // ชื่อร้านแบบไม่มี emoji
+  category: ShoppingItem['category'];
+  items: ShoppingItem[];
+  totalItemsCount: number;
+  boughtItemsCount: number;
+  isCompleted: boolean;
+  estimatedTotalCost: number;
+}
+
+export function groupShoppingItemsByShop(
+  items: ShoppingItem[],
+  priceBookLookup?: (name: string) => { shopName?: string } | null
+): ShopStallGroup[] {
+  const stallMap = new Map<string, ShopStallGroup>();
+
+  for (const item of items) {
+    let stallName = '';
+    const category = item.category || detectCategory(item.name);
+
+    // 1. ตรวจสอบจาก Price Book หรือฟังก์ชัน lookup
+    let lookupEntry: { shopName?: string } | null = null;
+    if (priceBookLookup) {
+      lookupEntry = priceBookLookup(item.name);
+    } else {
+      try {
+        lookupEntry = lookupPriceBook(item.name);
+      } catch {}
+    }
+
+    if (lookupEntry?.shopName && lookupEntry.shopName !== 'ตลาดสด') {
+      stallName = lookupEntry.shopName.trim();
+    }
+
+    // 2. ถ้าไม่มีร้านค้าเฉพาะ ให้จัดเข้าแผงตามหมวดหมู่
+    if (!stallName) {
+      switch (category) {
+        case 'meat':
+          stallName = '🥩 เขียงเนื้อสัตว์ / ซีฟู้ด';
+          break;
+        case 'veg':
+          stallName = '🥬 แผงผักสด / เห็ด';
+          break;
+        case 'egg_dairy':
+          stallName = '🥚 ร้านไข่สด / นม / เต้าหู้';
+          break;
+        case 'spice':
+          stallName = '🌶️ แผงพริก / กระเทียม / เครื่องแกง';
+          break;
+        case 'dry':
+          stallName = '🥫 ร้านของแห้ง / เครื่องปรุง';
+          break;
+        default:
+          stallName = '🛒 แผงทั่วไป / เบ็ดเตล็ด';
+          break;
+      }
+    } else {
+      // เติม icon นำหน้าให้สวยงามหากยังไม่มี
+      if (!stallName.match(/^[\u{1F300}-\u{1F9FF}]/u)) {
+        const icon = CATEGORY_LABELS[category]?.icon || '🏪';
+        stallName = `${icon} ${stallName}`;
+      }
+    }
+
+    const cleanName = stallName.replace(/^[\u{1F300}-\u{1F9FF}\s]+/u, '').trim() || stallName;
+
+    if (!stallMap.has(stallName)) {
+      stallMap.set(stallName, {
+        shopName: stallName,
+        cleanShopName: cleanName,
+        category,
+        items: [],
+        totalItemsCount: 0,
+        boughtItemsCount: 0,
+        isCompleted: false,
+        estimatedTotalCost: 0
+      });
+    }
+
+    const group = stallMap.get(stallName)!;
+    group.items.push(item);
+    group.totalItemsCount += 1;
+    if (item.bought) {
+      group.boughtItemsCount += 1;
+    }
+    group.estimatedTotalCost += (item.estimatedPrice || 0);
+  }
+
+  // คำนวณ isCompleted และแปลงเป็น array
+  const groups = Array.from(stallMap.values()).map(g => ({
+    ...g,
+    isCompleted: g.totalItemsCount > 0 && g.boughtItemsCount === g.totalItemsCount,
+    estimatedTotalCost: Math.round(g.estimatedTotalCost * 100) / 100
+  }));
+
+  // เรียงแผงที่ยังซื้อไม่เสร็จไว้ด้านบน แผงที่เสร็จแล้วไว้ด้านล่าง
+  groups.sort((a, b) => {
+    if (a.isCompleted !== b.isCompleted) {
+      return a.isCompleted ? 1 : -1;
+    }
+    return a.shopName.localeCompare(b.shopName, 'th');
+  });
+
+  return groups;
 }

@@ -25,7 +25,12 @@ import {
   Store
 } from 'lucide-react';
 import { Order, ShoppingItem } from '@/types/order';
-import { CATEGORY_LABELS, HouseAllocationParams } from '@/lib/shopping-aggregator';
+import {
+  CATEGORY_LABELS,
+  HouseAllocationParams,
+  groupShoppingItemsByShop,
+  ShopStallGroup
+} from '@/lib/shopping-aggregator';
 import { REAL_LOCATIONS, getLocationById, LocationConfig } from '@/lib/locations';
 import {
   FrequentContact,
@@ -75,6 +80,7 @@ export function ShoppingView({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [shoppingLayout, setShoppingLayout] = useState<'stall' | 'list'>('stall');
 
   // Quick manual item input form
   const [newItemName, setNewItemName] = useState('');
@@ -125,6 +131,7 @@ export function ShoppingView({
 
   const pendingItems = filteredItems.filter(it => !it.bought);
   const completedItems = filteredItems.filter(it => it.bought);
+  const stallGroups = groupShoppingItemsByShop(filteredItems);
 
   const handleCreateManualItem = (e: React.FormEvent) => {
     e.preventDefault();
@@ -453,6 +460,34 @@ export function ShoppingView({
         })}
       </div>
 
+      {/* View Layout Toggle: Stall View vs List View */}
+      <div className="flex items-center justify-between bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80">
+        <button
+          type="button"
+          onClick={() => setShoppingLayout('stall')}
+          className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            shoppingLayout === 'stall'
+              ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Store className="w-3.5 h-3.5 text-emerald-600" />
+          <span>🏪 จัดตามแผงค้า (Stall View)</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setShoppingLayout('list')}
+          className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+            shoppingLayout === 'list'
+              ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/80'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
+          <span>📋 รายการรวมทั้งหมด (List View)</span>
+        </button>
+      </div>
+
       {/* Quick Add Form Drawer */}
       {showAddForm && (
         <form
@@ -527,27 +562,134 @@ export function ShoppingView({
         </form>
       )}
 
-      {/* Grab-style Products List */}
-      <div className="space-y-2.5">
-        {pendingItems.length === 0 && completedItems.length === 0 ? (
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center space-y-3">
-            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <h3 className="font-bold text-slate-800">ยังไม่มีรายการของที่ต้องซื้อ</h3>
-            <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              เมื่อมีออเดอร์เข้ามาในระบบ หรือเมื่อคุณถ่ายรูปโพยตลาด รายการของสดจะถูกรวบรวมมาไว้ที่นี่อัตโนมัติ
-            </p>
-            <button
-              type="button"
-              onClick={onOpenPhotoModal}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-xs"
-            >
-              <Camera className="w-4 h-4" /> ถ่ายรูปโพยตลาดเลย
-            </button>
+      {/* Products List: Stall-by-Stall or Flat List */}
+      {filteredItems.length === 0 ? (
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-8 text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+            <CheckCircle2 className="w-6 h-6" />
           </div>
-        ) : (
-          pendingItems.map(item => {
+          <h3 className="font-bold text-slate-800">ยังไม่มีรายการของที่ต้องซื้อ</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            เมื่อมีออเดอร์เข้ามาในระบบ หรือเมื่อคุณถ่ายรูปโพยตลาด รายการของสดจะถูกรวบรวมมาไว้ที่นี่อัตโนมัติ
+          </p>
+          <button
+            type="button"
+            onClick={onOpenPhotoModal}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-xs"
+          >
+            <Camera className="w-4 h-4" /> ถ่ายรูปโพยตลาดเลย
+          </button>
+        </div>
+      ) : shoppingLayout === 'stall' ? (
+        /* 🏪 Stall-by-Stall Grouped Shopping View */
+        <div className="space-y-4">
+          {stallGroups.map(stall => (
+            <div
+              key={stall.shopName}
+              className={`rounded-2xl border transition-all overflow-hidden ${
+                stall.isCompleted
+                  ? 'bg-slate-50/70 border-slate-200/70 opacity-75'
+                  : 'bg-white border-slate-200/80 shadow-xs'
+              }`}
+            >
+              {/* Stall Card Header */}
+              <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-200/70 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-bold text-sm sm:text-base text-slate-800 truncate font-display">
+                    {stall.shopName}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span
+                    className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${
+                      stall.isCompleted
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}
+                  >
+                    {stall.isCompleted
+                      ? `✓ ครบ ${stall.totalItemsCount} รายการ`
+                      : `ซื้อแล้ว ${stall.boughtItemsCount}/${stall.totalItemsCount}`}
+                  </span>
+                </div>
+              </div>
+
+              {/* Stall Items: Consolidated with NO customer names on outer card */}
+              <div className="divide-y divide-slate-100">
+                {stall.items.map(item => {
+                  const catInfo = CATEGORY_LABELS[item.category];
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`p-3 sm:p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/50 transition-colors ${
+                        item.bought ? 'bg-slate-50/40 opacity-70' : ''
+                      }`}
+                    >
+                      {/* Left: Dedicated Checkbox */}
+                      <button
+                        type="button"
+                        onClick={() => onToggleBought(item.id)}
+                        className="p-1 rounded-xl transition-colors shrink-0"
+                        title={item.bought ? 'ติ๊กยังไม่ได้ซื้อ' : 'ติ๊กซื้อแล้ว'}
+                      >
+                        {item.bought ? (
+                          <CheckSquare className="w-6 h-6 text-emerald-600" />
+                        ) : (
+                          <Square className="w-6 h-6 text-slate-300 hover:text-emerald-600" />
+                        )}
+                      </button>
+
+                      {/* Middle: Item details (Consolidated name & item count, NO customer names) */}
+                      <div
+                        onClick={() => handleOpenItemSheet(item)}
+                        className="flex-1 min-w-0 cursor-pointer flex items-center gap-3"
+                      >
+                        <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-base flex-shrink-0">
+                          {catInfo.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4
+                            className={`font-bold text-sm sm:text-base text-slate-900 truncate font-display ${
+                              item.bought ? 'line-through text-slate-400' : ''
+                            }`}
+                          >
+                            {item.name}
+                          </h4>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            แตะเพื่อดูการแบ่งส่ง {item.allocations?.length ? `(${item.allocations.length} บ้าน)` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right: Consolidated Quantity Badge + Tap Chevron */}
+                      <div
+                        onClick={() => handleOpenItemSheet(item)}
+                        className="flex items-center gap-2 cursor-pointer pl-1 shrink-0"
+                      >
+                        <div
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold text-center border ${
+                            item.bought
+                              ? 'bg-slate-100 text-slate-500 border-slate-200'
+                              : 'bg-emerald-50 text-emerald-900 border-emerald-200/90'
+                          }`}
+                        >
+                          <span className="text-xs font-black">{item.totalQuantity}</span>{' '}
+                          <span className="text-[10px]">{item.unit}</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-slate-300" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        /* 📋 Flat List View */
+        <div className="space-y-2.5">
+          {pendingItems.map(item => {
             const catInfo = CATEGORY_LABELS[item.category];
             const allocatedCount = item.allocations?.length || 0;
             const housesSummary = item.allocations && item.allocations.length > 0
@@ -560,7 +702,6 @@ export function ShoppingView({
                 className="bg-white rounded-2xl border border-slate-200/80 shadow-xs hover:border-emerald-300 transition-all overflow-hidden"
               >
                 <div className="p-3 sm:p-3.5 flex items-center justify-between gap-3">
-                  {/* Left: Dedicated Checkbox to mark bought */}
                   <button
                     type="button"
                     onClick={() => onToggleBought(item.id)}
@@ -570,12 +711,10 @@ export function ShoppingView({
                     <Square className="w-6 h-6 text-slate-300 hover:text-emerald-600" />
                   </button>
 
-                  {/* Middle: Grab-style Product Info (Tap to view who to deliver & where) */}
                   <div
                     onClick={() => handleOpenItemSheet(item)}
                     className="flex-1 min-w-0 cursor-pointer flex items-center gap-3"
                   >
-                    {/* Category Icon Badge */}
                     <div className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg flex-shrink-0">
                       {catInfo.icon}
                     </div>
@@ -587,7 +726,6 @@ export function ShoppingView({
                         </h4>
                       </div>
 
-                      {/* Who & Where Subtitle (ส่งให้ใคร ที่ไหน) */}
                       <div className="flex items-center gap-1.5 mt-0.5 text-xs">
                         {allocatedCount > 0 ? (
                           <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1 font-medium">
@@ -603,7 +741,6 @@ export function ShoppingView({
                     </div>
                   </div>
 
-                  {/* Right: Quantity Badge + Tap to Open Chevron */}
                   <div
                     onClick={() => handleOpenItemSheet(item)}
                     className="flex items-center gap-2 cursor-pointer pl-1"
@@ -617,52 +754,51 @@ export function ShoppingView({
                 </div>
               </div>
             );
-          })
-        )}
+          })}
 
-        {/* Completed (Bought) Items Section */}
-        {completedItems.length > 0 && (
-          <div className="pt-4 space-y-2">
-            <div className="flex items-center justify-between text-xs text-slate-500 font-bold px-1">
-              <span>✓ ซื้อแล้ว ({completedItems.length} รายการ)</span>
-            </div>
+          {completedItems.length > 0 && (
+            <div className="pt-4 space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-500 font-bold px-1">
+                <span>✓ ซื้อแล้ว ({completedItems.length} รายการ)</span>
+              </div>
 
-            {completedItems.map(item => {
-              const catInfo = CATEGORY_LABELS[item.category];
+              {completedItems.map(item => {
+                const catInfo = CATEGORY_LABELS[item.category];
 
-              return (
-                <div
-                  key={item.id}
-                  className="bg-slate-50/80 rounded-2xl border border-slate-200/60 p-3 flex items-center justify-between gap-3 opacity-75"
-                >
-                  <button
-                    type="button"
-                    onClick={() => onToggleBought(item.id)}
-                    className="p-1 rounded-xl text-emerald-600"
-                    title="ติ๊กยังไม่ได้ซื้อ"
-                  >
-                    <CheckSquare className="w-5 h-5 text-emerald-600" />
-                  </button>
-
+                return (
                   <div
-                    onClick={() => handleOpenItemSheet(item)}
-                    className="flex-1 min-w-0 cursor-pointer flex items-center gap-2.5"
+                    key={item.id}
+                    className="bg-slate-50/80 rounded-2xl border border-slate-200/60 p-3 flex items-center justify-between gap-3 opacity-75"
                   >
-                    <span className="text-base opacity-60">{catInfo.icon}</span>
-                    <span className="line-through text-slate-500 font-medium text-xs sm:text-sm truncate">
-                      {item.name}
+                    <button
+                      type="button"
+                      onClick={() => onToggleBought(item.id)}
+                      className="p-1 rounded-xl text-emerald-600"
+                      title="ติ๊กยังไม่ได้ซื้อ"
+                    >
+                      <CheckSquare className="w-5 h-5 text-emerald-600" />
+                    </button>
+
+                    <div
+                      onClick={() => handleOpenItemSheet(item)}
+                      className="flex-1 min-w-0 cursor-pointer flex items-center gap-2.5"
+                    >
+                      <span className="text-base opacity-60">{catInfo.icon}</span>
+                      <span className="line-through text-slate-500 font-medium text-xs sm:text-sm truncate">
+                        {item.name}
+                      </span>
+                    </div>
+
+                    <span className="text-xs font-bold text-slate-400 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
+                      {item.totalQuantity} {item.unit}
                     </span>
                   </div>
-
-                  <span className="text-xs font-bold text-slate-400 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
-                    {item.totalQuantity} {item.unit}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Switch to Delivery Mode Floating Bar */}
       {boughtItems > 0 && (

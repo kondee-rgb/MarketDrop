@@ -18,11 +18,13 @@ import {
   ChevronRight,
   Package,
   Plus,
-  FileText
+  FileText,
+  Bell
 } from 'lucide-react';
 import { Order, PaymentMethod } from '@/types/order';
 import { DriverStopCard } from './DriverStopCard';
 import { PaymentConfirmModal } from './PaymentConfirmModal';
+import { DeliveryNotifyModal } from './DeliveryNotifyModal';
 import { REAL_LOCATIONS, getLocationById } from '@/lib/locations';
 
 interface DriverViewProps {
@@ -61,6 +63,9 @@ export function DriverView({
 
   // Modal for payment confirmation
   const [activeConfirmOrder, setActiveConfirmOrder] = useState<Order | null>(null);
+
+  // Modal for customer pre-arrival notification
+  const [activeNotifyOrder, setActiveNotifyOrder] = useState<Order | null>(null);
 
   // Jump to specific stop card
   const [targetCardId, setTargetCardId] = useState<string | null>(null);
@@ -398,6 +403,14 @@ export function DriverView({
                           >
                             <Navigation className="w-3.5 h-3.5" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveNotifyOrder(order)}
+                            className="p-1.5 bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all"
+                            title="แจ้งเตือนลูกค้าก่อนส่ง (LINE / SMS / Copy)"
+                          >
+                            <Bell className="w-3.5 h-3.5 text-amber-700" />
+                          </button>
                         </div>
                       </div>
 
@@ -483,6 +496,15 @@ export function DriverView({
             onConfirmDelivery(orderId, collectedAmount, paymentMethod, deliveredAt, partialReason);
             setActiveConfirmOrder(null);
           }}
+        />
+      )}
+
+      {/* Customer Pre-Arrival Notification Modal */}
+      {activeNotifyOrder && (
+        <DeliveryNotifyModal
+          order={activeNotifyOrder}
+          isOpen={Boolean(activeNotifyOrder)}
+          onClose={() => setActiveNotifyOrder(null)}
         />
       )}
     </div>
