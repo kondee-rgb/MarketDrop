@@ -6,6 +6,21 @@
   /* Prompt is loaded at 300–700 only; cap heavy utilities so the browser never fakes a bolder weight */
   --font-weight-extrabold: 700;
   --font-weight-black: 700;
+  /* Calmer type: "bold" renders as semibold, like iOS */
+  --font-weight-bold: 600;
+
+  /* One green, not two: teal utilities render as the emerald accent */
+  --color-teal-50: var(--color-emerald-50);
+  --color-teal-100: var(--color-emerald-100);
+  --color-teal-200: var(--color-emerald-200);
+  --color-teal-300: var(--color-emerald-300);
+  --color-teal-400: var(--color-emerald-400);
+  --color-teal-500: var(--color-emerald-500);
+  --color-teal-600: var(--color-emerald-600);
+  --color-teal-700: var(--color-emerald-700);
+  --color-teal-800: var(--color-emerald-800);
+  --color-teal-900: var(--color-emerald-900);
+
   --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
 }
 

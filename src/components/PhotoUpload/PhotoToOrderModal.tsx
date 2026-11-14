@@ -540,7 +540,7 @@ export function PhotoToOrderModal({
 
               {/* Form Mode 1: Delivery Order Fields */}
               {targetType === 'delivery' ? (
-                <div className="space-y-3.5 bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4">
+                <div className="space-y-3.5 bg-slate-50/70 rounded-2xl p-4">
                   <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
                     <span className="font-bold text-sm text-slate-800">
                       📍 ข้อมูลบ้านที่ต้องส่ง (ตรวจทาน/แก้ไขได้)
@@ -551,7 +551,7 @@ export function PhotoToOrderModal({
                   </div>
 
                   {/* Frequent Contacts Dropdown */}
-                  <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="bg-emerald-50/70 rounded-2xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                       <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
                       <span className="text-xs font-bold text-emerald-950">เลือกลูกค้าประจำ:</span>
@@ -601,7 +601,7 @@ export function PhotoToOrderModal({
 
                     {/* Sub-option Selector */}
                     {currentLocationConfig?.subOptions && currentLocationConfig.subOptions.length > 0 && (
-                      <div className="p-2.5 bg-emerald-50/50 rounded-xl border border-emerald-200/60 space-y-1">
+                      <div className="p-2.5 bg-emerald-50/50 rounded-xl space-y-1">
                         <label className="text-[10px] font-bold text-emerald-950 flex items-center gap-1">
                           <Building className="w-3 h-3 text-emerald-700" />
                           <span>{currentLocationConfig.subOptionLabel || 'เลือกตึก / แบบบ้าน'}:</span>
@@ -677,7 +677,7 @@ export function PhotoToOrderModal({
                   </div>
 
                   {/* Save as Frequent Customer Toggle */}
-                  <label className="flex items-center gap-2 text-xs font-bold text-emerald-950 bg-emerald-50/60 p-2 rounded-xl border border-emerald-200/70 cursor-pointer hover:bg-emerald-50 transition-colors">
+                  <label className="flex items-center gap-2 text-xs font-bold text-emerald-950 bg-emerald-50/60 p-2 rounded-xl cursor-pointer hover:bg-emerald-50 transition-colors">
                     <input
                       type="checkbox"
                       checked={saveAsFrequent}
@@ -813,7 +813,7 @@ export function PhotoToOrderModal({
                 </div>
               ) : (
                 /* Form Mode 2: Shopping List Items */
-                <div className="space-y-3 bg-slate-50/70 border border-slate-200/90 rounded-2xl p-4">
+                <div className="space-y-3 bg-slate-50/70 rounded-2xl p-4">
                   <div className="flex items-center justify-between border-b border-slate-200/70 pb-2">
                     <span className="font-bold text-sm text-slate-800">
                       🛒 รายการของสดที่ต้องซื้อในตลาด ({shoppingItems.length} รายการ)

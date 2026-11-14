@@ -196,7 +196,7 @@ export function DeliveryNotifyModal({
                   <button
                     type="button"
                     onClick={() => setMessage(fillMessageTemplate(tpl, order))}
-                    className="max-w-[220px] text-left text-[11.5px] leading-snug px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 hover:bg-emerald-50 hover:border-emerald-200 line-clamp-2"
+                    className="max-w-[220px] text-left text-[11.5px] leading-snug px-3 py-2 rounded-2xl bg-slate-50 text-slate-700 hover:bg-emerald-50 hover:border-emerald-200 line-clamp-2"
                   >
                     {fillMessageTemplate(tpl, order)}
                   </button>
@@ -254,10 +254,10 @@ export function DeliveryNotifyModal({
               value={message}
               onChange={e => setMessage(e.target.value)}
               rows={7}
-              className="w-full bg-slate-50 p-3.5 rounded-2xl border border-slate-200/90 text-[13px] text-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-300 focus:bg-white transition-colors resize-none"
+              className="w-full bg-slate-50 p-3.5 rounded-2xl text-[13px] text-slate-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-400/50 focus:border-emerald-300 focus:bg-white transition-colors resize-none"
             />
             <div className="flex items-center gap-2">
-              <div className="flex-1 flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5">
+              <div className="flex-1 flex items-center gap-1.5 bg-slate-50 rounded-xl px-2.5">
                 <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <input
                   type="text"
@@ -274,7 +274,7 @@ export function DeliveryNotifyModal({
                 type="button"
                 onClick={handleSaveAsQuick}
                 disabled={!message.trim() || quickMessages.includes(message.trim())}
-                className="shrink-0 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-xl flex items-center gap-1 disabled:opacity-40"
+                className="shrink-0 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1.5 rounded-xl flex items-center gap-1 disabled:opacity-40"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>บันทึกเป็นข้อความด่วน</span>

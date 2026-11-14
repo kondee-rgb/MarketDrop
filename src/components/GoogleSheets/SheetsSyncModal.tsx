@@ -101,14 +101,14 @@ export function SheetsSyncModal({
         {/* Modal Body */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1 text-sm">
           {syncResultMsg && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl flex items-center gap-2 text-xs font-semibold">
+            <div className="p-3 bg-emerald-50 text-emerald-900 rounded-2xl flex items-center gap-2 text-xs font-semibold">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
               <span>{syncResultMsg}</span>
             </div>
           )}
 
           {/* Configuration Form */}
-          <form onSubmit={handleSave} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+          <form onSubmit={handleSave} className="bg-slate-50 rounded-2xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-800">
                 Google Apps Script Webhook URL:
@@ -191,7 +191,7 @@ export function SheetsSyncModal({
             <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
               <span>📋 โครงสร้างคอลัมน์ A ถึง N ตามสเปก MarketDrop:</span>
             </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl">
               <div><strong>A:</strong> Timestamp</div>
               <div><strong>B:</strong> ลำดับส่ง (Stop No.)</div>
               <div><strong>C:</strong> บ้านเลขที่ (House No.)</div>

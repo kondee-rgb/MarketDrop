@@ -17,7 +17,7 @@ export interface FuelCalculationResult {
 export const FUEL_CONFIG_KEY = 'marketdrop_fuel_config_v1';
 
 export const DEFAULT_FUEL_CONFIG: FuelConfig = {
-  distanceKm: 25,
+  distanceKm: 0, // comes from the trip planner; 0 = no driving logged yet
   consumptionKmPerLiter: 14,
   fuelPricePerLiter: 38.5,
   otherExpenses: 0,

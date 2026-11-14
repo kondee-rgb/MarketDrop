@@ -115,7 +115,7 @@ export function OrderCardAdmin({
               <CheckCircle className="w-3 h-3 text-emerald-600" /> ส่งแล้ว ({order.deliveredAt || 'เสร็จสิ้น'})
             </span>
           ) : (
-            <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-200">
+            <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full flex items-center gap-1">
               <Clock className="w-3 h-3 text-amber-500" /> รอส่ง
             </span>
           )}
@@ -163,7 +163,7 @@ export function OrderCardAdmin({
 
       {/* Notes if any */}
       {order.notes && (
-        <div className="mt-2 text-xs bg-amber-50/70 border border-amber-200/60 text-amber-900 px-2.5 py-1 rounded-lg">
+        <div className="mt-2 text-xs bg-amber-50/70 text-amber-900 px-2.5 py-1 rounded-lg">
           <span className="font-bold">📝 หมายเหตุ:</span> {order.notes}
         </div>
       )}

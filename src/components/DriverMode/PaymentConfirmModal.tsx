@@ -160,7 +160,7 @@ export function PaymentConfirmModal({
         {/* Content Form */}
         <form onSubmit={handleSubmit} className="p-5 overflow-y-auto space-y-4 flex-1">
           {/* Order Summary Pill */}
-          <div className="bg-slate-50 border border-slate-200/90 rounded-2xl p-4 flex items-center justify-between">
+          <div className="bg-slate-50 rounded-2xl p-4 flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-500 font-medium">ลูกค้า: {order.customerName}</p>
               <p className="text-xs text-slate-500">จำนวนของ: {order.items.length} รายการ</p>
@@ -333,7 +333,7 @@ export function PaymentConfirmModal({
                 type="button"
                 onClick={() => slipInputRef.current?.click()}
                 disabled={slip.status === 'checking'}
-                className="w-full py-2.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+                className="w-full py-2.5 rounded-xl bg-sky-50 text-sky-800 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
               >
                 {slip.status === 'checking' ? (
                   <>
@@ -349,7 +349,7 @@ export function PaymentConfirmModal({
               </button>
 
               {slip.status === 'error' && (
-                <p className="animate-in fade-in duration-200 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                <p className="animate-in fade-in duration-200 text-xs text-rose-700 bg-rose-50 rounded-xl px-3 py-2">
                   {slip.message}
                 </p>
               )}

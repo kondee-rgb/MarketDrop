@@ -202,7 +202,7 @@ export function LinePasteModal({
                 className="w-full p-3.5 text-sm font-sans rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 bg-slate-50/50"
               />
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs text-slate-600 space-y-1">
+              <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-600 space-y-1">
                 <p className="font-semibold text-slate-800 flex items-center gap-1">
                   💡 คำแนะนำการใช้งาน:
                 </p>
@@ -213,7 +213,7 @@ export function LinePasteModal({
           ) : (
             /* Parsed Preview Step */
             <div className="space-y-4">
-              <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+              <div className="flex items-center justify-between bg-emerald-50 rounded-xl p-3">
                 <div className="flex items-center gap-2 text-emerald-900">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                   <span className="text-sm font-bold">
@@ -316,7 +316,7 @@ export function LinePasteModal({
 
                       <div className="space-y-1.5">
                         {draft.items.map((item, itemIdx) => (
-                          <div key={item.id || itemIdx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-200">
+                          <div key={item.id || itemIdx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg">
                             <input
                               type="text"
                               value={item.name}

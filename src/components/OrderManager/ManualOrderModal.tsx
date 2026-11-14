@@ -303,7 +303,7 @@ export function ManualOrderModal({
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
           {/* Frequent Contacts Dropdown */}
-          <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="bg-emerald-50/70 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-1.5">
               <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
               <span className="text-xs font-bold text-emerald-950">เลือกลูกค้าประจำ:</span>
@@ -353,7 +353,7 @@ export function ManualOrderModal({
 
             {/* Sub-option Selector (Towers or House Types) */}
             {currentLocationConfig?.subOptions && currentLocationConfig.subOptions.length > 0 && (
-              <div className="p-3 bg-emerald-50/50 rounded-2xl border border-emerald-200/70 space-y-1.5">
+              <div className="p-3 bg-emerald-50/50 rounded-2xl space-y-1.5">
                 <label className="text-[11px] font-bold text-emerald-950 flex items-center gap-1">
                   <Building className="w-3.5 h-3.5 text-emerald-700" />
                   <span>{currentLocationConfig.subOptionLabel || 'เลือกตึก / แบบบ้าน'}:</span>
@@ -452,7 +452,7 @@ export function ManualOrderModal({
           </div>
 
           {/* Save as Frequent Contact Toggle */}
-          <label className="flex items-center gap-2 text-xs font-bold text-emerald-950 bg-emerald-50/60 p-2.5 rounded-2xl border border-emerald-200/70 cursor-pointer hover:bg-emerald-50 transition-colors">
+          <label className="flex items-center gap-2 text-xs font-bold text-emerald-950 bg-emerald-50/60 p-2.5 rounded-2xl cursor-pointer hover:bg-emerald-50 transition-colors">
             <input
               type="checkbox"
               checked={saveAsFrequent}
@@ -479,7 +479,7 @@ export function ManualOrderModal({
               {items.map((item, idx) => (
                 <div
                   key={item.id}
-                  className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-200"
+                  className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl"
                 >
                   <input
                     type="text"

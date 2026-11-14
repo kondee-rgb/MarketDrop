@@ -35,7 +35,7 @@ export function RouteSummary({ orders }: RouteSummaryProps) {
           <TrendingUp className="w-4 h-4 text-emerald-600" />
           <span>ความคืบหน้าการส่งวันนี้</span>
         </div>
-        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
           {completedStops} จาก {totalStops} หลัง ({progressPercent}%)
         </span>
       </div>
@@ -50,7 +50,7 @@ export function RouteSummary({ orders }: RouteSummaryProps) {
       {/* Grid of Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         {/* Metric 1: Total Stops */}
-        <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
+        <div className="bg-slate-50 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
             <Home className="w-5 h-5" />
           </div>
@@ -63,7 +63,7 @@ export function RouteSummary({ orders }: RouteSummaryProps) {
         </div>
 
         {/* Metric 2: Completed Stops */}
-        <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
+        <div className="bg-emerald-50/70 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
@@ -76,7 +76,7 @@ export function RouteSummary({ orders }: RouteSummaryProps) {
         </div>
 
         {/* Metric 3: COD Pending */}
-        <div className="bg-amber-50/80 border border-amber-200/80 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
+        <div className="bg-amber-50/80 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
             <Banknote className="w-5 h-5" />
           </div>
@@ -89,7 +89,7 @@ export function RouteSummary({ orders }: RouteSummaryProps) {
         </div>
 
         {/* Metric 4: Total Collected */}
-        <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
+        <div className="bg-slate-50 rounded-xl p-2.5 sm:p-3 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center flex-shrink-0">
             <Wallet className="w-5 h-5" />
           </div>

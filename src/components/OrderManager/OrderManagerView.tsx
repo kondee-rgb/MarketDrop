@@ -153,7 +153,7 @@ export function OrderManagerView({
 
             <button
               onClick={onOpenSheetsModal}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl font-semibold text-xs sm:text-sm transition-colors"
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-semibold text-xs sm:text-sm transition-colors"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
               <span>ซิงค์ชีต / ส่งขึ้นคลาวด์</span>
@@ -276,7 +276,7 @@ export function OrderManagerView({
         /* Grouped by Soi View */
         <div className="space-y-4">
           {grouped.map((group, groupIdx) => (
-            <div key={groupIdx} className="bg-slate-50/80 rounded-2xl border border-slate-200/90 p-4 space-y-3">
+            <div key={groupIdx} className="bg-slate-50/80 rounded-2xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />

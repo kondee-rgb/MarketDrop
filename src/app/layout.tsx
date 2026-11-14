@@ -30,7 +30,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover',
-  themeColor: '#f4fbf7'
+  themeColor: '#f4f5f7'
 };
 
 export default function RootLayout({
@@ -44,7 +44,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-touch-fullscreen" content="yes" />
       </head>
-      <body className={`min-h-full flex flex-col bg-[#f8faf9] text-slate-800 font-sans selection:bg-emerald-200 selection:text-emerald-950 ${promptFont.className}`}>
+      <body className={`min-h-full flex flex-col bg-[#f4f5f7] text-slate-800 font-sans selection:bg-emerald-200 selection:text-emerald-950 ${promptFont.className}`}>
         {children}
         <script
           dangerouslySetInnerHTML={{

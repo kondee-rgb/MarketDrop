@@ -154,6 +154,8 @@ export function hardResetAllData(): void {
     localStorage.removeItem('marketdrop_shopping_state_v1');
     localStorage.removeItem('marketdrop_shopping_state_v2');
     localStorage.removeItem('marketdrop_shopping_state_v3');
+    // profit history was kept before, so test days lingered in the P&L charts forever
+    localStorage.removeItem('marketdrop_daily_profit_history_v1');
     localStorage.setItem(ORDERS_KEY, JSON.stringify([]));
   } catch (err) {
     console.error('Failed to hard reset data:', err);

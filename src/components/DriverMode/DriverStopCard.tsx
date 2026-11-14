@@ -107,7 +107,7 @@ export function DriverStopCard({
             </h2>
             <div className="flex items-center gap-2 text-sm sm:text-base font-bold text-slate-700 mt-1.5">
               {order.building && (
-                <span className="bg-teal-50 text-teal-800 border border-teal-200 px-2 py-0.5 rounded-md text-xs font-bold">
+                <span className="bg-teal-50 text-teal-800 px-2 py-0.5 rounded-md text-xs font-bold">
                   {order.building}
                 </span>
               )}
@@ -147,13 +147,13 @@ export function DriverStopCard({
           {order.phone ? (
             <a
               href={`tel:${order.phone}`}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-2xl font-bold text-xs sm:text-sm active:scale-95 transition-all"
+              className="flex items-center justify-center gap-1.5 py-2.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-2xl font-bold text-xs sm:text-sm active:scale-95 transition-all"
             >
               <Phone className="w-4 h-4 text-blue-600" />
               <span>โทร</span>
             </a>
           ) : (
-            <div className="flex items-center justify-center gap-1 py-2.5 px-2 bg-slate-50 text-slate-400 rounded-2xl text-xs font-medium border border-slate-200">
+            <div className="flex items-center justify-center gap-1 py-2.5 px-2 bg-slate-50 text-slate-400 rounded-2xl text-xs font-medium">
               ไม่มีเบอร์
             </div>
           )}
@@ -231,7 +231,7 @@ export function DriverStopCard({
 
         {/* Customer Notes */}
         {order.notes && (
-          <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl text-xs text-amber-900 flex items-start gap-2">
+          <div className="p-3 bg-amber-50/70 rounded-2xl text-xs text-amber-900 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
               <strong className="font-bold">หมายเหตุลูกค้า:</strong> {order.notes}
@@ -242,7 +242,7 @@ export function DriverStopCard({
         {/* Action Button: Confirm Delivery / Revert */}
         <div className="pt-2">
           {isDelivered ? (
-            <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-2xl border border-emerald-200">
+            <div className="flex items-center justify-between p-3 bg-emerald-50 rounded-2xl">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 <div>

@@ -45,7 +45,7 @@ export function Header({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 pt-safe bg-white/80 backdrop-blur-xl backdrop-saturate-150 text-slate-800 shadow-xs border-b border-emerald-100/80">
+    <header className="sticky top-0 z-30 pt-safe bg-white/80 backdrop-blur-xl backdrop-saturate-150 text-slate-800 border-b border-slate-200/70">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5">
         <div className="flex items-center justify-between gap-2">
           {/* Logo & Brand */}
@@ -57,9 +57,6 @@ export function Header({
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-800 font-display">
                   Market<span className="text-emerald-600">Drop</span>
-                </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100/80 text-emerald-800 border border-emerald-200">
-                  MOBILE
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 hidden sm:block">

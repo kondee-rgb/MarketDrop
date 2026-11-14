@@ -322,7 +322,7 @@ export default function MarketDropApp() {
 
   // Reset sample data / Hard clear
   const handleResetSampleData = () => {
-    if (confirm('คุณต้องการล้างข้อมูลออเดอร์และรายการซื้อของทั้งหมดใช่หรือไม่? (เริ่มต้นใหม่ 0 รายการ)')) {
+    if (confirm('คุณต้องการล้างออเดอร์ รายการซื้อของ และประวัติกำไรทั้งหมดใช่หรือไม่? (สมุดราคาต้นทุนและสถานที่ยังเก็บไว้)')) {
       hardResetAllData();
       setOrders([]);
       setBoughtShoppingIds([]);
@@ -375,7 +375,7 @@ export default function MarketDropApp() {
 
   if (!isMounted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#f8faf9] text-slate-800">
+      <div className="min-h-screen flex items-center justify-center bg-[#f4f5f7] text-slate-800">
         <div className="flex flex-col items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 border border-emerald-200 animate-pulse flex items-center justify-center font-bold text-xl">
             🛵
@@ -387,7 +387,7 @@ export default function MarketDropApp() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#f8faf9] text-slate-800 font-sans pb-20 md:pb-6">
+    <div className="min-h-screen flex flex-col bg-[#f4f5f7] text-slate-800 font-sans pb-20 md:pb-6">
       {/* App Header */}
       <Header
         activeTab={activeTab}

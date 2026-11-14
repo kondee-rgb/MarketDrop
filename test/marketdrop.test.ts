@@ -1176,3 +1176,52 @@ describe('18. Gemini model fallback', () => {
     expect(badRequest.length).toBe(1);
   });
 });
+
+describe('19. Trip planner (route → km for fuel)', () => {
+  it('builds legs from start → stops → back, using saved km, coordinate estimates, or missing', async () => {
+    const { buildTripLegs, tripTotalKm, legKey } = await import('../src/lib/trip');
+    const places = [
+      { id: 'home', name: 'บ้าน', lat: 13.7, lng: 100.5 },
+      { id: 'market', name: 'ตลาด', lat: 13.71, lng: 100.5 }, // ~1.11 km north
+      { id: 'condo', name: 'คอนโด' } // no coordinates
+    ];
+    const legs = buildTripLegs(
+      { startId: 'home', stopIds: ['market', 'condo'], roundTrip: true },
+      places,
+      { [legKey('condo', 'market')]: 4.5 } // saved in the other direction: pairs are symmetric
+    );
+    expect(legs.map(l => [l.fromId, l.toId, l.source])).toEqual([
+      ['home', 'market', 'estimate'],
+      ['market', 'condo', 'saved'],
+      ['condo', 'home', 'missing']
+    ]);
+    expect(legs[0].km).toBe(1.4); // 1.11 km straight × 1.3 road factor
+    expect(tripTotalKm(legs)).toBe(5.9);
+
+    const oneWay = buildTripLegs({ startId: 'home', stopIds: ['market'], roundTrip: false }, places, {});
+    expect(oneWay.length).toBe(1);
+    expect(buildTripLegs({ startId: 'home', stopIds: [], roundTrip: true }, places, {})).toEqual([]);
+  });
+
+  it('reads coordinates from Google Maps links and builds a directions URL', async () => {
+    const { parseLatLng, buildMapsDirectionsUrl } = await import('../src/lib/trip');
+    expect(parseLatLng('https://www.google.com/maps/place/X/@13.6789,100.4567,17z')).toEqual({ lat: 13.6789, lng: 100.4567 });
+    expect(parseLatLng('https://maps.google.com/?q=13.65,100.49')).toEqual({ lat: 13.65, lng: 100.49 });
+    expect(parseLatLng(' 13.7, 100.5 ')).toEqual({ lat: 13.7, lng: 100.5 });
+    expect(parseLatLng('https://maps.app.goo.gl/abc123')).toBeNull();
+    expect(parseLatLng('999.1, 100.5')).toBeNull();
+
+    const url = buildMapsDirectionsUrl(
+      { startId: 'home', stopIds: ['market', 'condo'], roundTrip: true },
+      [
+        { id: 'home', name: 'บ้าน', lat: 13.7, lng: 100.5 },
+        { id: 'market', name: 'ตลาด' },
+        { id: 'condo', name: 'คอนโด' }
+      ]
+    )!;
+    const q = new URL(url).searchParams;
+    expect(q.get('origin')).toBe('13.7,100.5');
+    expect(q.get('destination')).toBe('13.7,100.5');
+    expect(q.get('waypoints')).toBe('ตลาด|คอนโด');
+  });
+});

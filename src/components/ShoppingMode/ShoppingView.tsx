@@ -349,7 +349,7 @@ export function ShoppingView({
       <div className="bg-white text-slate-800 rounded-3xl p-4 sm:p-5 shadow-xs border border-slate-200/80">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 flex-shrink-0">
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center flex-shrink-0">
               <ShoppingCart className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
@@ -365,7 +365,7 @@ export function ShoppingView({
           <button
             type="button"
             onClick={onOpenPhotoModal}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs shadow-xs border border-emerald-200 active:scale-95 transition-all"
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
           >
             <Camera className="w-3.5 h-3.5 text-emerald-600" />
             <span>ถ่ายโพยซื้อ</span>
@@ -492,7 +492,7 @@ export function ShoppingView({
       {showAddForm && (
         <form
           onSubmit={handleCreateManualItem}
-          className="bg-emerald-50/50 border border-emerald-200/80 rounded-2xl p-3.5 space-y-3 animate-in fade-in duration-200 shadow-xs"
+          className="bg-emerald-50/50 rounded-2xl p-3.5 space-y-3 animate-in fade-in duration-200 shadow-xs"
         >
           <div className="flex items-center justify-between">
             <span className="font-bold text-xs text-emerald-950 flex items-center gap-1">
@@ -645,7 +645,7 @@ export function ShoppingView({
                         onClick={() => handleOpenItemSheet(item)}
                         className="flex-1 min-w-0 cursor-pointer flex items-center gap-3"
                       >
-                        <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-base flex-shrink-0">
+                        <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center text-base flex-shrink-0">
                           {catInfo.icon}
                         </div>
                         <div className="min-w-0 flex-1">
@@ -715,7 +715,7 @@ export function ShoppingView({
                     onClick={() => handleOpenItemSheet(item)}
                     className="flex-1 min-w-0 cursor-pointer flex items-center gap-3"
                   >
-                    <div className="w-10 h-10 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-lg flex-shrink-0">
+                    <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-lg flex-shrink-0">
                       {catInfo.icon}
                     </div>
 
@@ -728,12 +728,12 @@ export function ShoppingView({
 
                       <div className="flex items-center gap-1.5 mt-0.5 text-xs">
                         {allocatedCount > 0 ? (
-                          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-100 flex items-center gap-1 font-medium">
+                          <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg flex items-center gap-1 font-medium">
                             <Home className="w-3 h-3 text-emerald-600" />
                             <span>ส่งให้ {allocatedCount} บ้าน: <strong>{housesSummary}</strong></span>
                           </span>
                         ) : (
-                          <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200 flex items-center gap-1 font-medium">
+                          <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg flex items-center gap-1 font-medium">
                             <span>⚠️ ยังไม่ระบุบ้านส่ง • แตะเลือกบ้าน</span>
                           </span>
                         )}
@@ -745,7 +745,7 @@ export function ShoppingView({
                     onClick={() => handleOpenItemSheet(item)}
                     className="flex items-center gap-2 cursor-pointer pl-1"
                   >
-                    <div className="bg-emerald-50 text-emerald-900 border border-emerald-200/90 px-2.5 py-1 rounded-xl text-xs font-bold text-center">
+                    <div className="bg-emerald-50 text-emerald-900 px-2.5 py-1 rounded-xl text-xs font-bold text-center">
                       <span className="text-xs font-black">{item.totalQuantity}</span>{' '}
                       <span className="text-[10px] text-emerald-700">{item.unit}</span>
                     </div>
@@ -768,7 +768,7 @@ export function ShoppingView({
                 return (
                   <div
                     key={item.id}
-                    className="bg-slate-50/80 rounded-2xl border border-slate-200/60 p-3 flex items-center justify-between gap-3 opacity-75"
+                    className="bg-slate-50/80 rounded-2xl p-3 flex items-center justify-between gap-3 opacity-75"
                   >
                     <button
                       type="button"
@@ -824,7 +824,7 @@ export function ShoppingView({
             {/* Sheet Header */}
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-2xl border border-emerald-100 flex-shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-2xl flex-shrink-0">
                   {CATEGORY_LABELS[allocatingItem.category].icon}
                 </div>
                 <div>
@@ -832,7 +832,7 @@ export function ShoppingView({
                     {allocatingItem.name}
                   </h3>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg">
                       รวมทั้งหมด: {allocatingItem.totalQuantity} {allocatingItem.unit}
                     </span>
                     <button
@@ -876,7 +876,7 @@ export function ShoppingView({
                   {allocatingItem.allocations.map(alloc => (
                     <div
                       key={alloc.orderId}
-                      className="bg-slate-50 rounded-2xl border border-slate-200 p-3 flex items-center justify-between gap-2"
+                      className="bg-slate-50 rounded-2xl p-3 flex items-center justify-between gap-2"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -884,12 +884,12 @@ export function ShoppingView({
                             {alloc.houseNumber}
                           </strong>
                           {alloc.building && (
-                            <span className="text-[10px] bg-teal-50 text-teal-800 border border-teal-200 px-1.5 py-0.2 rounded font-medium">
+                            <span className="text-[10px] bg-teal-50 text-teal-800 px-1.5 py-0.2 rounded font-medium">
                               {alloc.building}
                             </span>
                           )}
                           {alloc.soi && (
-                            <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.2 rounded font-medium">
+                            <span className="text-[10px] bg-amber-50 text-amber-800 px-1.5 py-0.2 rounded font-medium">
                               {alloc.soi}
                             </span>
                           )}
@@ -932,7 +932,7 @@ export function ShoppingView({
                   ))}
                 </div>
               ) : (
-                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs text-amber-900">
+                <div className="p-3 bg-amber-50/70 rounded-2xl text-xs text-amber-900">
                   <p className="font-semibold">⚠️ สินค้านี้ยังไม่ได้ระบุบ้านส่ง</p>
                   <p className="text-amber-700 mt-0.5 text-[11px]">
                     คุณสามารถเลือกออเดอร์ หรือใส่บ้านเลขที่ด้านล่าง เพื่อจัดสรรของชิ้นนี้ให้บ้านลูกค้าได้ทันที
@@ -989,7 +989,7 @@ export function ShoppingView({
               {allocTargetMode === 'existing' && (
                 <div className="space-y-2">
                   {existingOrders.length === 0 ? (
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 text-center">
+                    <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 text-center">
                       ยังไม่มีออเดอร์ส่งของในระบบวันนี้ กรุณาเลือก "+ เพิ่มบ้านใหม่"
                     </div>
                   ) : (
@@ -1017,7 +1017,7 @@ export function ShoppingView({
               {allocTargetMode === 'frequent' && (
                 <div className="space-y-2">
                   {contactsList.length === 0 ? (
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 text-center">
+                    <div className="p-3 bg-slate-50 rounded-xl text-xs text-slate-500 text-center">
                       ยังไม่มีรายชื่อลูกค้าประจำ สามารถพิมพ์บ้านใหม่และติ๊ก ⭐ เพื่อบันทึกได้
                     </div>
                   ) : (
@@ -1055,7 +1055,7 @@ export function ShoppingView({
 
               {/* MODE 3: เพิ่มบ้านเลขที่ใหม่แบบเจาะจงสถานที่ */}
               {allocTargetMode === 'new' && (
-                <div className="space-y-2.5 bg-slate-50/80 p-3 rounded-2xl border border-slate-200">
+                <div className="space-y-2.5 bg-slate-50/80 p-3 rounded-2xl">
                   {/* Location Selector */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
@@ -1225,7 +1225,7 @@ export function ShoppingView({
               )}
 
               {/* Shop Name & Cost Price (Price Memory) */}
-              <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/90 space-y-2">
+              <div className="p-3 bg-amber-50/80 rounded-2xl space-y-2">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
                   <Store className="w-3.5 h-3.5 text-amber-700" />
                   <span>ร้านค้า & ต้นทุนที่ซื้อ (จดจำราคาอัตโนมัติ)</span>

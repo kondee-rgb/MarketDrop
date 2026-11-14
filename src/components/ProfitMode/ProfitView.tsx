@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { TripPlanner } from './TripPlanner';
 import {
   TrendingUp,
   DollarSign,
@@ -44,6 +45,7 @@ import { CATEGORY_LABELS } from '@/lib/shopping-aggregator';
 import {
   getProfitAnalyticsByPeriod,
   saveDailyProfitSnapshot,
+  clearProfitHistory,
   toLocalDateStr,
   AnalyticsPeriod,
   PeriodProfitAnalytics,
@@ -103,6 +105,16 @@ export function ProfitView({
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  // Total km comes from the trip planner
+  const handleTripKm = useCallback((km: number) => {
+    setFuelConfig(prev => {
+      if (prev.distanceKm === km) return prev;
+      const next = { ...prev, distanceKm: km };
+      saveFuelConfig(next);
+      return next;
+    });
+  }, []);
+
   // Fuel config handlers
   const handleUpdateFuel = (key: keyof FuelConfig, value: number | string) => {
     const updated: FuelConfig = {
@@ -122,7 +134,7 @@ export function ProfitView({
   const paymentSegments = [
     { key: 'TRANSFER', label: 'โอน', value: collection.byMethod.TRANSFER, color: 'bg-emerald-500' },
     { key: 'QR_SCAN', label: 'สแกน QR', value: collection.byMethod.QR_SCAN, color: 'bg-sky-500' },
-    { key: 'CASH', label: 'เงินสด', value: collection.byMethod.CASH, color: 'bg-teal-300' },
+    { key: 'CASH', label: 'เงินสด', value: collection.byMethod.CASH, color: 'bg-slate-300' },
     { key: 'PARTIAL', label: 'จ่ายบางส่วน', value: collection.byMethod.PARTIAL, color: 'bg-violet-300' },
     { key: 'OUT', label: 'ค้าง', value: collection.outstanding, color: 'bg-amber-300' }
   ].filter(seg => seg.value > 0);
@@ -133,7 +145,7 @@ export function ProfitView({
 
   // Auto-save today's snapshot on profit summary changes
   useEffect(() => {
-    saveDailyProfitSnapshot(toLocalDateStr(), profitSummary);
+    if (profitSummary.totalOrders > 0) saveDailyProfitSnapshot(toLocalDateStr(), profitSummary);
   }, [profitSummary]);
 
   // Query analytics for selected period
@@ -288,7 +300,7 @@ export function ProfitView({
       <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100 flex-shrink-0">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center flex-shrink-0">
               <TrendingUp className="w-5 h-5 text-emerald-600" />
             </div>
             <div>
@@ -313,7 +325,7 @@ export function ProfitView({
             <button
               type="button"
               onClick={handleExportCsv}
-              className="p-2 text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 rounded-xl border border-slate-200 transition-all"
+              className="p-2 text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 rounded-xl transition-all"
               title="ส่งออกรายงาน CSV"
             >
               <Download className="w-4 h-4" />
@@ -321,7 +333,7 @@ export function ProfitView({
             <button
               type="button"
               onClick={onOpenSheetsModal}
-              className="p-2 text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 rounded-xl border border-slate-200 transition-all"
+              className="p-2 text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 rounded-xl transition-all"
               title="ตั้งค่า Google Sheets"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
@@ -330,7 +342,7 @@ export function ProfitView({
         </div>
 
         {/* Big Net Profit Display */}
-        <div className="bg-emerald-50/70 border border-emerald-200/90 rounded-2xl p-4 text-center space-y-1">
+        <div className="bg-emerald-50/70 rounded-2xl p-4 text-center space-y-1">
           <p className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
             💎 กำไรสุทธิ (หักค่าน้ำมันแล้ว)
           </p>
@@ -353,7 +365,7 @@ export function ProfitView({
         {/* 3 Metrics Grid: Revenue, Produce Cost, Transport Expense */}
         <div className="grid grid-cols-3 gap-2">
           {/* Revenue */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center">
+          <div className="bg-slate-50 rounded-2xl p-3 text-center">
             <p className="text-[10px] font-bold text-slate-500 uppercase">💵 ยอดขายรวม</p>
             <p className="text-sm sm:text-base font-black text-slate-900 font-display mt-0.5">
               ฿{(selectedPeriod === 'today' ? profitSummary.totalRevenue : periodAnalytics.totalRevenue).toLocaleString()}
@@ -361,17 +373,17 @@ export function ProfitView({
           </div>
 
           {/* Produce Cost */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center">
+          <div className="bg-slate-50 rounded-2xl p-3 text-center">
             <p className="text-[10px] font-bold text-slate-500 uppercase">🛒 ต้นทุนของสด</p>
-            <p className="text-sm sm:text-base font-black text-rose-700 font-display mt-0.5">
+            <p className="text-sm sm:text-base font-black text-slate-900 font-display mt-0.5">
               ฿{(selectedPeriod === 'today' ? profitSummary.totalProduceCost : periodAnalytics.totalProduceCost).toLocaleString()}
             </p>
           </div>
 
           {/* Fuel & Travel Expense */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 text-center">
+          <div className="bg-slate-50 rounded-2xl p-3 text-center">
             <p className="text-[10px] font-bold text-slate-500 uppercase">⛽ ค่าน้ำมัน</p>
-            <p className="text-sm sm:text-base font-black text-amber-900 font-display mt-0.5">
+            <p className="text-sm sm:text-base font-black text-slate-900 font-display mt-0.5">
               ฿{(selectedPeriod === 'today' ? profitSummary.totalTransportExpense : periodAnalytics.totalFuelCost).toLocaleString()}
             </p>
           </div>
@@ -380,13 +392,13 @@ export function ProfitView({
         {/* Daily Averages if Viewing Period with History */}
         {selectedPeriod !== 'today' && periodAnalytics.daysRecorded > 1 && (
           <div className="grid grid-cols-2 gap-2 pt-1">
-            <div className="bg-slate-50/90 border border-slate-200/70 rounded-xl p-2.5 text-center">
+            <div className="bg-slate-50/90 rounded-xl p-2.5 text-center">
               <span className="text-[10px] text-slate-500 block">เฉลี่ยยอดขายต่อวัน</span>
               <strong className="text-xs text-slate-800 font-bold">
                 ฿{periodAnalytics.averageDailyRevenue.toLocaleString()}
               </strong>
             </div>
-            <div className="bg-emerald-50/70 border border-emerald-200/70 rounded-xl p-2.5 text-center">
+            <div className="bg-emerald-50/70 rounded-xl p-2.5 text-center">
               <span className="text-[10px] text-emerald-700 block">เฉลี่ยกำไรสุทธิต่อวัน</span>
               <strong className="text-xs text-emerald-800 font-bold">
                 ฿{periodAnalytics.averageDailyNetProfit.toLocaleString()}
@@ -396,7 +408,7 @@ export function ProfitView({
         )}
 
         {/* Gross Profit Callout */}
-        <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50/80 px-3.5 py-2 rounded-xl border border-slate-200/60">
+        <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50/80 px-3.5 py-2 rounded-xl">
           <span>กำไรขั้นต้นจากของสด (ก่อนหักน้ำมัน):</span>
           <strong className="text-emerald-800 font-bold">
             ฿{(selectedPeriod === 'today' ? profitSummary.grossProfit : periodAnalytics.grossProfit).toLocaleString()} ({selectedPeriod === 'today' ? profitSummary.grossMarginPercent : periodAnalytics.grossMarginPercent}%)
@@ -408,7 +420,7 @@ export function ProfitView({
       {selectedPeriod === 'today' && collection.billed > 0 && (
         <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-100">
+            <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center">
               <Wallet className="w-4 h-4" />
             </div>
             <div>
@@ -418,15 +430,15 @@ export function ProfitView({
           </div>
 
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200/70 p-2.5">
+            <div className="rounded-2xl bg-emerald-50/70 p-2.5">
               <p className="text-[10px] text-emerald-700">ได้รับแล้ว</p>
               <p className="text-sm font-bold text-emerald-800 tabular-nums">฿{collection.collected.toLocaleString()}</p>
             </div>
-            <div className="rounded-2xl bg-amber-50/80 border border-amber-200/80 p-2.5">
+            <div className="rounded-2xl bg-amber-50/80 p-2.5">
               <p className="text-[10px] text-amber-800">ยังค้างเก็บ</p>
               <p className="text-sm font-bold text-amber-900 tabular-nums">฿{collection.outstanding.toLocaleString()}</p>
             </div>
-            <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-2.5">
+            <div className="rounded-2xl bg-slate-50 p-2.5">
               <p className="text-[10px] text-slate-500">เฉลี่ย/บิล</p>
               <p className="text-sm font-bold text-slate-800 tabular-nums">฿{collection.avgOrderValue.toLocaleString()}</p>
             </div>
@@ -461,7 +473,7 @@ export function ProfitView({
                 สินค้าทำกำไรสูงสุด
               </p>
               {topItems.map((it, i) => (
-                <div key={it.name} className="flex items-center justify-between text-xs bg-slate-50 rounded-xl px-3 py-2 border border-slate-200/60">
+                <div key={it.name} className="flex items-center justify-between text-xs bg-slate-50 rounded-xl px-3 py-2">
                   <span className="text-slate-700">
                     <span className="mr-1.5">{['🥇', '🥈', '🥉'][i]}</span>
                     {it.name}
@@ -481,7 +493,7 @@ export function ProfitView({
       <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-100">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
               <BarChart3 className="w-4 h-4 text-emerald-600" />
             </div>
             <div>
@@ -494,9 +506,18 @@ export function ProfitView({
             </div>
           </div>
           {periodAnalytics.daysRecorded > 0 && (
-            <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
-              เฉลี่ย ฿{periodAnalytics.averageDailyNetProfit.toLocaleString()}/วัน
-            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm('ลบประวัติกำไรย้อนหลังทั้งหมด? (ออเดอร์วันนี้ไม่หาย)')) {
+                  clearProfitHistory();
+                  showToast('ลบประวัติกำไรแล้ว');
+                }
+              }}
+              className="text-xs font-medium text-slate-500 hover:text-rose-600 px-2.5 py-1 rounded-lg"
+            >
+              ล้างประวัติ
+            </button>
           )}
         </div>
 
@@ -509,7 +530,7 @@ export function ProfitView({
             {periodAnalytics.dailyTrends.map(day => (
               <div
                 key={day.date}
-                className="p-3 rounded-2xl bg-slate-50 border border-slate-200/60 flex items-center justify-between gap-3 text-xs"
+                className="p-3 rounded-2xl bg-slate-50 flex items-center justify-between gap-3 text-xs"
               >
                 <div className="w-24 font-bold text-slate-700 shrink-0">
                   <div className="flex items-center gap-1.5">
@@ -544,114 +565,66 @@ export function ProfitView({
         )}
       </div>
 
-      {/* Fuel & Travel Calculator Card */}
-      <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-3">
-        <div
+      {/* Trip & Fuel Card */}
+      <div className="bg-white rounded-3xl p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/70 space-y-4">
+        <button
+          type="button"
           onClick={() => setIsFuelCardOpen(!isFuelCardOpen)}
-          className="flex items-center justify-between cursor-pointer select-none"
+          className="w-full flex items-center justify-between text-left"
         >
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200">
-              <Fuel className="w-4 h-4 text-amber-600" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+              <Fuel className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 font-display">
-                เครื่องคำนวณค่าน้ำมัน (Fuel Expense)
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                ขับ {fuelConfig.distanceKm} กม. • น้ำมัน ฿{profitSummary.fuelResult.fuelCost} (฿{profitSummary.fuelResult.costPerKm}/กม.)
+              <h3 className="text-[15px] font-semibold text-slate-900 font-display">ค่าเดินทางวันนี้</h3>
+              <p className="text-xs text-slate-500 tabular-nums">
+                {fuelConfig.distanceKm} กม. · น้ำมัน ฿{profitSummary.fuelResult.fuelCost}
+                {fuelConfig.otherExpenses > 0 ? ` · อื่นๆ ฿${fuelConfig.otherExpenses}` : ''}
               </p>
             </div>
           </div>
-
-          <div className="p-1 text-slate-400">
-            {isFuelCardOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          <div className="flex items-center gap-2">
+            <span className="text-base font-semibold text-slate-900 tabular-nums">
+              ฿{profitSummary.totalTransportExpense.toLocaleString()}
+            </span>
+            {isFuelCardOpen ? (
+              <ChevronUp className="w-4 h-4 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-slate-400" />
+            )}
           </div>
+        </button>
+
+        {/* kept mounted (hidden) so the route total still feeds the calculation when collapsed */}
+        <div className={isFuelCardOpen ? 'space-y-4 pt-1 animate-in fade-in duration-200' : 'hidden'}>
+          <TripPlanner onTotalKmChange={handleTripKm} />
+
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { key: 'consumptionKmPerLiter' as const, label: 'กม./ลิตร', step: '0.5' },
+              { key: 'fuelPricePerLiter' as const, label: 'ราคาน้ำมัน ฿/ลิตร', step: '0.1' },
+              { key: 'otherExpenses' as const, label: 'ทางด่วน/จอด ฿', step: '1' }
+            ].map(f => (
+              <label key={f.key} className="block">
+                <span className="block text-[11px] text-slate-500 mb-1">{f.label}</span>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step={f.step}
+                  value={fuelConfig[f.key]}
+                  onChange={e => handleUpdateFuel(f.key, e.target.value)}
+                  className="w-full px-3 py-2 text-sm font-medium tabular-nums rounded-xl bg-slate-50 border-0 ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                />
+              </label>
+            ))}
+          </div>
+
+          <p className="text-xs text-slate-500 tabular-nums">
+            ใช้น้ำมันประมาณ {profitSummary.fuelResult.litersUsed} ลิตร
+            {profitSummary.fuelResult.costPerKm > 0 ? ` · ฿${profitSummary.fuelResult.costPerKm}/กม.` : ''}
+          </p>
         </div>
-
-        {isFuelCardOpen && (
-          <div className="space-y-3 pt-2 border-t border-slate-100 animate-in fade-in duration-200">
-            <div className="grid grid-cols-2 gap-2.5">
-              {/* Distance */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  📍 ระยะทางรวม (กิโลเมตร):
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={fuelConfig.distanceKm}
-                  onChange={e => handleUpdateFuel('distanceKm', e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white font-bold"
-                  placeholder="เช่น 30"
-                />
-              </div>
-
-              {/* Consumption: km/L */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  🚗 กี่กิโลเมตรต่อลิตร (km/L):
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  value={fuelConfig.consumptionKmPerLiter}
-                  onChange={e => handleUpdateFuel('consumptionKmPerLiter', e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white font-bold"
-                  placeholder="เช่น 14"
-                />
-              </div>
-
-              {/* Fuel Price per Liter */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  ⛽ ราคาน้ำมัน (บาท/ลิตร):
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={fuelConfig.fuelPricePerLiter}
-                  onChange={e => handleUpdateFuel('fuelPricePerLiter', e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white font-bold"
-                  placeholder="เช่น 38.50"
-                />
-              </div>
-
-              {/* Other Expenses */}
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  🏷️ ค่าทางด่วน/ค่าจอด (บาท):
-                </label>
-                <input
-                  type="number"
-                  value={fuelConfig.otherExpenses}
-                  onChange={e => handleUpdateFuel('otherExpenses', e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white font-bold"
-                  placeholder="เช่น 50"
-                />
-              </div>
-            </div>
-
-            {/* Live calculation banner */}
-            <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-3 flex items-center justify-between text-xs">
-              <div className="space-y-0.5">
-                <p className="text-amber-900 font-bold">
-                  ใช้น้ำมันประมาณ: <strong>{profitSummary.fuelResult.litersUsed} ลิตร</strong>
-                </p>
-                <p className="text-[11px] text-amber-700">
-                  ค่าน้ำมัน ฿{profitSummary.fuelResult.fuelCost} {fuelConfig.otherExpenses > 0 ? `+ ค่าอื่นๆ ฿${fuelConfig.otherExpenses}` : ''}
-                </p>
-              </div>
-
-              <div className="text-right">
-                <span className="text-[10px] text-amber-800 uppercase font-bold">รวมค่าเดินทาง</span>
-                <p className="text-base font-black text-amber-950 font-display">
-                  ฿{profitSummary.totalTransportExpense.toLocaleString()}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Item-by-Item Profit Breakdown Section */}
@@ -667,7 +640,7 @@ export function ProfitView({
           <button
             type="button"
             onClick={() => setIsPriceBookOpen(true)}
-            className="flex items-center gap-1 text-xs text-emerald-700 font-bold hover:text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200 active:scale-95 transition-all"
+            className="flex items-center gap-1 text-xs text-emerald-700 font-bold hover:text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl active:scale-95 transition-all"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>สมุดราคา ({priceBookEntries.length})</span>
@@ -832,7 +805,7 @@ export function ProfitView({
                 </div>
               </div>
 
-              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-[11px] text-emerald-900">
+              <div className="p-3 bg-emerald-50/70 rounded-2xl text-[11px] text-emerald-900">
                 💡 <strong>ระบบจำอัตโนมัติ:</strong> เมื่อบันทึกแล้ว ครั้งหน้าที่ลูกค้าสั่ง <strong>"{editingItem.name}"</strong> ระบบจะดึงต้นทุนและคำนวณกำไรให้ทันทีโดยไม่ต้องกรอกซ้ำ
               </div>
 
@@ -887,7 +860,7 @@ export function ProfitView({
             </div>
 
             {/* Add New Item to Price Book Form */}
-            <form onSubmit={handleCreatePriceBookEntry} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2 text-xs">
+            <form onSubmit={handleCreatePriceBookEntry} className="bg-slate-50 p-3 rounded-2xl space-y-2 text-xs">
               <span className="font-bold text-slate-800 flex items-center gap-1">
                 <Plus className="w-3.5 h-3.5 text-emerald-600" /> เพิ่มราคาสินค้าใหม่เข้าระบบ
               </span>
