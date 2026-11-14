@@ -1225,3 +1225,146 @@ describe('19. Trip planner (route → km for fuel)', () => {
     expect(q.get('waypoints')).toBe('ตลาด|คอนโด');
   });
 });
+
+describe('20. Google Sheets v2 (history upsert + summaries)', () => {
+  // Minimal in-memory stand-in for SpreadsheetApp: just enough to run the real script text
+  const makeFakeSpreadsheet = () => {
+    const sheets: Record<string, { cells: unknown[][] }> = {};
+    const chain = (obj: object): object =>
+      new Proxy(obj, { get: (t, k) => (k in t ? (t as Record<string | symbol, unknown>)[k] : () => chain(obj)) });
+    const makeSheet = (name: string) => {
+      const sh = { cells: [] as unknown[][] };
+      sheets[name] = sh;
+      const api = {
+        getLastRow: () => sh.cells.length,
+        getRange: (r: number, c: number, nr = 1, nc = 1): object =>
+          chain({
+            getValues: () =>
+              Array.from({ length: nr }, (_, i) => Array.from({ length: nc }, (_, j) => sh.cells[r - 1 + i]?.[c - 1 + j] ?? '')),
+            setValues: (vals: unknown[][]) => {
+              vals.forEach((row, i) =>
+                row.forEach((v, j) => {
+                  (sh.cells[r - 1 + i] ||= [])[c - 1 + j] = v;
+                })
+              );
+              return api.getRange(r, c, nr, nc);
+            },
+            clearContent: () => {
+              sh.cells.splice(r - 1, nr);
+              return api.getRange(r, c, nr, nc);
+            }
+          }),
+        clear: () => {
+          sh.cells = [];
+        },
+        setFrozenRows: () => undefined
+      };
+      return api;
+    };
+    const apis: Record<string, ReturnType<typeof makeSheet>> = {};
+    const ss = {
+      getSheetByName: (n: string) => apis[n] || null,
+      insertSheet: (n: string) => (apis[n] = makeSheet(n))
+    };
+    return { ss, sheets };
+  };
+
+  const loadScript = async (ss: unknown) => {
+    const { APPS_SCRIPT_CODE } = await import('../src/lib/apps-script');
+    const run = new Function('SpreadsheetApp', 'ContentService', 'LockService', `${APPS_SCRIPT_CODE}; return { doPost, doGet };`);
+    return run(
+      { getActiveSpreadsheet: () => ss },
+      { createTextOutput: (t: string) => ({ setMimeType: () => t }), MimeType: { JSON: 'json' } },
+      { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) }
+    ) as { doPost: (e: unknown) => string };
+  };
+
+  const order = (id: string, date: string, customer: string, total: number, cost: number, status = 'ส่งสำเร็จ') => ({
+    id, date, customerName: customer, houseNumber: '51/1', location: 'ไอวี่ริเวอร์', phone: '', items: 'หมูบด 1 กก.',
+    total, paid: total, due: 0, paymentMethod: 'เงินสด', status, cost, profit: total - cost, notes: '', updatedAt: ''
+  });
+  const post = (script: { doPost: (e: unknown) => string }, body: unknown) =>
+    JSON.parse(script.doPost({ postData: { contents: JSON.stringify(body) } }));
+
+  it('keeps history across syncs, updates by Order ID, and builds customer + P&L tabs', async () => {
+    const { ss, sheets } = makeFakeSpreadsheet();
+    const script = await loadScript(ss);
+
+    // Day 1
+    expect(
+      post(script, {
+        action: 'UPSERT_ORDERS',
+        orders: [order('a', '2026-11-14', 'พี่นก', 200, 120), order('b', '2026-11-14', 'คุณเอ', 300, 200)],
+        expenses: [{ date: '2026-11-14', fuel: 30, other: 10, km: 12 }]
+      }).status
+    ).toBe('success');
+
+    // Day 2: app was reset, so only today's orders are sent. Day 1 must survive; 'a' re-sent with a new total.
+    post(script, {
+      action: 'UPSERT_ORDERS',
+      orders: [
+        order('c', '2026-11-15', 'พี่นก', 150, 100),
+        order('a', '2026-11-14', 'พี่นก', 250, 120),
+        order('x', '2026-11-15', 'ลูกค้ายกเลิก', 999, 0, 'ยกเลิก')
+      ],
+      expenses: [{ date: '2026-11-15', fuel: 20, other: 0, km: 8 }]
+    });
+
+    const orders = sheets['ออเดอร์'].cells.slice(1);
+    expect(orders.length).toBe(4); // a, b, c, x: nothing wiped, nothing duplicated
+    expect(orders.find(r => r[14] === 'a')![6]).toBe(250); // updated in place
+    expect(orders[0][0]).toBe('2026-11-15'); // newest day first
+
+    const customers = sheets['ลูกค้า'].cells.slice(1);
+    const nok = customers.find(r => r[0] === 'พี่นก')!;
+    expect(nok[2]).toBe(2);
+    expect(nok[3]).toBe('15 พ.ย. 2026, 14 พ.ย. 2026');
+    expect(nok[4]).toBe(400);
+    expect(customers.some(r => r[0] === 'ลูกค้ายกเลิก')).toBe(false); // cancelled excluded
+
+    const summary = sheets['สรุปกำไร'].cells;
+    const rowOf = (label: string) => summary.find(r => r?.[0] === label)!.slice(1, 6);
+    // revenue 700, produce cost 420, travel 60 → net 220
+    expect(rowOf('ปี 2026')).toEqual([3, 700, 420, 60, 220]);
+    expect(rowOf('พ.ย. 2026')).toEqual([3, 700, 420, 60, 220]);
+    expect(rowOf('14 พ.ย. 2026')).toEqual([2, 550, 320, 40, 190]);
+    expect(rowOf('15 พ.ย. 2026')).toEqual([1, 150, 100, 20, 30]);
+    // 14 Nov 2026 is a Saturday, 15 Nov a Sunday: both in the week starting Monday 9 Nov
+    expect(rowOf('สัปดาห์เริ่ม 9 พ.ย. 2026')).toEqual([3, 700, 420, 60, 220]);
+  });
+
+  it('builds the app payload: order day, paid/due, cost and travel cost', async () => {
+    const { buildSheetsPayload } = await import('../src/lib/sheets');
+    const base = {
+      stopNumber: 1, soi: '', locationId: 'ivy-river', customerName: 'พี่นก', phone: '', notes: '', deliveredAt: null,
+      createdAt: new Date(2026, 10, 14, 6, 30).toISOString(), updatedAt: '',
+      items: [{ id: 'i', name: 'หมูบด', quantity: 2, unit: 'กก.', costPrice: 100 }]
+    };
+    const p = buildSheetsPayload(
+      [
+        { ...base, id: 'cod', houseNumber: '51/1', totalAmount: 300, paymentStatus: 'COD', collectedAmount: 0, paymentMethod: null, deliveryStatus: 'PENDING' },
+        { ...base, id: 'part', houseNumber: '51/2', totalAmount: 300, paymentStatus: 'COD', collectedAmount: 100, paymentMethod: 'UNPAID', deliveryStatus: 'DELIVERED', partialReason: 'โอนเย็นนี้' },
+        { ...base, id: 'pre', houseNumber: '51/3', totalAmount: 300, paymentStatus: 'PAID', collectedAmount: 0, paymentMethod: null, deliveryStatus: 'PENDING' }
+      ] as Order[],
+      { distanceKm: 14, consumptionKmPerLiter: 14, fuelPricePerLiter: 40, otherExpenses: 20 },
+      '2026-11-15'
+    );
+    expect(p.orders.map(o => [o.id, o.date, o.paid, o.due, o.cost, o.profit])).toEqual([
+      ['cod', '2026-11-14', 0, 300, 200, 100],
+      ['part', '2026-11-14', 100, 200, 200, 100],
+      ['pre', '2026-11-14', 300, 0, 200, 100]
+    ]);
+    expect(p.orders[0].location).toBe('ไอวี่ริเวอร์');
+    expect(p.orders[1].notes).toContain('โอนเย็นนี้');
+    expect(p.expenses).toEqual([{ date: '2026-11-15', fuel: 40, other: 20, km: 14 }]);
+  });
+
+  it('explains a rejected webhook in Thai', async () => {
+    const { interpretSheetsReply } = await import('../src/lib/sheets-reply');
+    expect(interpretSheetsReply(200, '{"status":"success","message":"x"}').ok).toBe(true);
+    const denied = interpretSheetsReply(403, '<html>การเข้าถึงถูกปฏิเสธ</html>');
+    expect(denied.ok).toBe(false);
+    expect(denied.message).toContain('ทุกคน');
+    expect(interpretSheetsReply(200, '{"status":"error","message":"boom"}').message).toContain('boom');
+  });
+});

@@ -186,27 +186,15 @@ export function SheetsSyncModal({
             </button>
           </div>
 
-          {/* Structure Specification Table (Columns A-N) */}
-          <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-2">
-            <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-              <span>📋 โครงสร้างคอลัมน์ A ถึง N ตามสเปก MarketDrop:</span>
-            </h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl">
-              <div><strong>A:</strong> Timestamp</div>
-              <div><strong>B:</strong> ลำดับส่ง (Stop No.)</div>
-              <div><strong>C:</strong> บ้านเลขที่ (House No.)</div>
-              <div><strong>D:</strong> ซอย/โซน (Soi/Zone)</div>
-              <div><strong>E:</strong> ชื่อลูกค้า</div>
-              <div><strong>F:</strong> เบอร์โทรศัพท์</div>
-              <div><strong>G:</strong> รายการสินค้า</div>
-              <div><strong>H:</strong> ยอดเงินรวม</div>
-              <div><strong>I:</strong> สถานะชำระเงิน</div>
-              <div><strong>J:</strong> ยอดเก็บได้จริง</div>
-              <div><strong>K:</strong> ช่องทางชำระเงิน</div>
-              <div><strong>L:</strong> สถานะจัดส่ง</div>
-              <div><strong>M:</strong> เวลาส่งเสร็จ</div>
-              <div><strong>N:</strong> หมายเหตุ</div>
-            </div>
+          {/* What the sheet contains */}
+          <div className="rounded-2xl p-4 bg-white ring-1 ring-slate-200 space-y-2">
+            <h4 className="font-semibold text-slate-800 text-xs">ในชีตจะมี 4 แท็บ (เก็บประวัติไว้ตลอด ไม่ลบของเก่า)</h4>
+            <ul className="text-[11px] text-slate-600 space-y-1">
+              <li><strong>สรุปกำไร</strong> · รายปี / รายเดือน / รายสัปดาห์ / รายวัน: ออเดอร์ รายได้ ต้นทุน ค่าเดินทาง กำไรสุทธิ</li>
+              <li><strong>ออเดอร์</strong> · ทุกออเดอร์แยกตามวันและลูกค้า: ยอดบิล จ่ายแล้ว ค้างจ่าย ต้นทุน กำไร</li>
+              <li><strong>ลูกค้า</strong> · แต่ละคนสั่งวันไหนบ้าง ซื้อรวมเท่าไร จ่ายแล้ว/ค้าง กำไรจากคนนั้น</li>
+              <li><strong>ค่าเดินทาง</strong> · ค่าน้ำมันและระยะทางรายวัน</li>
+            </ul>
           </div>
 
           {/* Expandable Apps Script Guide */}
@@ -217,9 +205,11 @@ export function SheetsSyncModal({
                   <h4 className="font-bold text-emerald-950 text-xs">
                     ⚡ โค้ด Google Apps Script สำเร็จรูป:
                   </h4>
-                  <p className="text-[11px] text-emerald-800">
-                    นำไปวางใน Extensions &gt; Apps Script ของ Google Sheet แล้ว Deploy เป็น Web App
-                  </p>
+                  <ol className="text-[11px] text-emerald-900 list-decimal pl-4 space-y-0.5">
+                    <li>ใน Google Sheet: ส่วนขยาย → Apps Script → ลบโค้ดเดิม วางโค้ดนี้ → บันทึก</li>
+                    <li>ทำให้ใช้งานได้ → จัดการการทำให้ใช้งานได้ → ✏️ แก้ไข → เวอร์ชัน: <strong>เวอร์ชันใหม่</strong></li>
+                    <li>ดำเนินการเป็น: <strong>ฉัน</strong> · ผู้มีสิทธิ์เข้าถึง: <strong>ทุกคน</strong> → ทำให้ใช้งานได้ (ลิงก์เดิมใช้ต่อได้)</li>
+                  </ol>
                 </div>
                 <button
                   type="button"

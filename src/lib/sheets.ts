@@ -1,7 +1,9 @@
 import { Order } from '@/types/order';
 import { FuelConfig, calculateFuelExpense, getFuelConfig } from './fuel-calc';
 import { lookupPriceBook } from './price-book';
-import { calculateDailyProfit } from './profit-aggregator';
+import { getLocationById } from './locations';
+import { toLocalDateStr } from './historical-profit';
+export { APPS_SCRIPT_CODE as SAMPLE_APPS_SCRIPT_CODE } from './apps-script';
 
 export const SHEETS_COLUMNS = [
   'A: Timestamp',
@@ -129,8 +131,74 @@ export function orderToSheetRow(order: Order, fuelCostPerOrder: number = 0): (st
   ];
 }
 
+export interface SheetsOrderRow {
+  id: string;
+  date: string; // YYYY-MM-DD (order day, local time)
+  customerName: string;
+  houseNumber: string;
+  location: string;
+  phone: string;
+  items: string;
+  total: number;
+  paid: number;
+  due: number;
+  paymentMethod: string;
+  status: string;
+  cost: number;
+  profit: number;
+  notes: string;
+  updatedAt: string;
+}
+
+export interface SheetsPayload {
+  action: 'UPSERT_ORDERS';
+  version: 2;
+  orders: SheetsOrderRow[];
+  expenses: { date: string; fuel: number; other: number; km: number }[];
+}
+
+/** Shape the app's orders for the v2 Apps Script (history-keeping upsert by Order ID). */
+export function buildSheetsPayload(orders: Order[], fuelConfig: FuelConfig, today: string = toLocalDateStr()): SheetsPayload {
+  const rows = orders.map(o => {
+    const created = o.createdAt ? new Date(o.createdAt) : null;
+    const date = created && !isNaN(created.getTime()) ? toLocalDateStr(created) : today;
+    const total = o.totalAmount || 0;
+    const paid = o.deliveryStatus === 'DELIVERED' ? o.collectedAmount || 0 : o.paymentStatus === 'PAID' ? total : 0;
+    const cost = Math.round(calculateOrderCost(o));
+    return {
+      id: o.id,
+      date,
+      customerName: o.customerName || '-',
+      houseNumber: o.houseNumber || '',
+      location: getLocationById(o.locationId)?.shortName || o.soi || '',
+      phone: o.phone || '',
+      items: formatItemsSummary(o.items),
+      total,
+      paid,
+      due: Math.max(0, total - paid),
+      paymentMethod: o.deliveryStatus === 'DELIVERED' || o.paymentStatus === 'PAID'
+        ? formatPaymentMethodThai(o.paymentMethod || (o.paymentStatus === 'PAID' ? 'TRANSFER' : null))
+        : 'เก็บปลายทาง (ยังไม่เก็บ)',
+      status: formatDeliveryStatusThai(o.deliveryStatus),
+      cost,
+      profit: total - cost,
+      notes: [o.notes, o.partialReason && `ค้างชำระ: ${o.partialReason}`].filter(Boolean).join(' · '),
+      updatedAt: o.updatedAt || ''
+    };
+  });
+
+  const fuel = calculateFuelExpense(fuelConfig);
+  const expenses =
+    fuelConfig.distanceKm > 0 || fuel.otherExpenses > 0
+      ? [{ date: today, fuel: fuel.fuelCost, other: fuel.otherExpenses, km: fuelConfig.distanceKm }]
+      : [];
+
+  return { action: 'UPSERT_ORDERS', version: 2, orders: rows, expenses };
+}
+
 /**
- * ส่งข้อมูล Order เดี่ยว หรือทั้งหมดไปยัง Google Sheets ผ่าน Webhook หรือ API Route
+ * ส่งออเดอร์ไป Google Sheets ผ่าน server (/api/sheets/sync) — server อ่านคำตอบจากชีตได้
+ * จึงรู้ว่าบันทึกสำเร็จจริงหรือไม่ (ยิงตรงแบบ no-cors เดิมรายงาน "สำเร็จ" เสมอแม้ชีตปฏิเสธ)
  */
 export async function syncToGoogleSheets(
   orders: Order[],
@@ -138,69 +206,25 @@ export async function syncToGoogleSheets(
   fuelConfig?: FuelConfig
 ): Promise<{ success: boolean; message: string; timestamp: string }> {
   const timestamp = new Date().toISOString();
-  const activeCfg = fuelConfig || getFuelConfig();
-  const fuelCalc = calculateFuelExpense(activeCfg);
-  const activeOrdersCount = orders.filter(o => o.deliveryStatus !== 'CANCELLED').length;
-  const fuelCostPerOrder = activeOrdersCount > 0 ? fuelCalc.fuelCost / activeOrdersCount : 0;
-  const dailyProfit = calculateDailyProfit(orders, activeCfg);
+  const payload = buildSheetsPayload(orders, fuelConfig || getFuelConfig());
 
   try {
-    const payload = {
-      action: 'SYNC_ALL',
-      timestamp,
-      count: orders.length,
-      columns: SHEETS_COLUMNS,
-      rows: orders.map(o => orderToSheetRow(o, fuelCostPerOrder)),
-      orders,
-      profitSummary: dailyProfit
-    };
-
-    // 1. ถ้ามี Webhook URL ส่งไปยัง Apps Script โดยตรง หรือผ่าน API route
-    if (webhookUrl && webhookUrl.trim().startsWith('http')) {
-      await fetch(webhookUrl.trim(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload),
-        mode: 'no-cors'
-      });
-
-      return {
-        success: true,
-        message: 'ส่งข้อมูลและสรุปกำไรไปยัง Google Sheets สำเร็จ',
-        timestamp
-      };
-    }
-
-    // 2. เรียก API route ภายในเครื่องเพื่อจำลอง/บันทึก Cloud state
-    const localRes = await fetch('/api/sheets/sync', {
+    const res = await fetch('/api/sheets/sync', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        orders,
-        webhookUrl,
-        profitSummary: dailyProfit
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders, webhookUrl, payload })
     });
-
-    if (!localRes.ok) {
-      throw new Error(`Server returned ${localRes.status}`);
-    }
-
-    const data = await localRes.json();
+    const data = await res.json().catch(() => ({}));
     return {
-      success: true,
-      message: data.message || 'ซิงค์ข้อมูลและผลกำไรเรียบร้อย',
+      success: res.ok && data.success !== false,
+      message: data.message || (res.ok ? 'ซิงค์เรียบร้อย' : `ซิงค์ไม่สำเร็จ (${res.status})`),
       timestamp
     };
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : 'Unknown sync error';
     return {
       success: false,
-      message: `ซิงค์ไม่สำเร็จ (${errorMsg}) ข้อมูลจะถูกบันทึกในเครื่องแทน`,
+      message: `ซิงค์ไม่สำเร็จ (${errorMsg}) ข้อมูลยังอยู่ในเครื่อง`,
       timestamp
     };
   }
@@ -251,63 +275,3 @@ export function exportOrdersToCsv(orders: Order[], fuelConfig?: FuelConfig): str
   // ใส่ UTF-8 BOM (\uFEFF) เพื่อให้ภาษาไทยใน Excel และชีตไม่เป็นภาษาต่างดาว
   return '\uFEFF' + csvContent;
 }
-
-/**
- * ตัวอย่างโค้ด Google Apps Script สำเร็จรูป สำหรับให้ผู้ใช้ก๊อปปี้ไปวางใน Google Sheets
- */
-export const SAMPLE_APPS_SCRIPT_CODE = `/**
- * Google Apps Script สำหรับรับข้อมูลจาก MarketDrop Webhook พร้อมคอลัมน์วิเคราะห์กำไรสุทธิ
- */
-
-function doPost(e) {
-  try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var data = JSON.parse(e.postData.contents);
-    
-    // ตั้งชื่อหัวตารางถ้าชีตยังว่างอยู่ (คอลัมน์ A ถึง R)
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow([
-        "Timestamp", "Stop No.", "House No.", "Soi/Zone",
-        "Customer Name", "Phone", "Items", "Total Amount",
-        "Payment Status", "Collected Amount", "Payment Method",
-        "Delivery Status", "Delivered At", "Notes",
-        "Produce Cost", "Gross Profit", "Fuel Share", "Net Profit"
-      ]);
-      sheet.getRange(1, 1, 1, 18).setFontWeight("bold").setBackground("#d1fae5");
-    }
-
-    if (data.action === "SYNC_ALL" && data.rows && data.rows.length > 0) {
-      // ล้างแถวเก่าแล้วเขียนใหม่ทั้งหมด
-      if (sheet.getLastRow() > 1) {
-        sheet.deleteRows(2, sheet.getLastRow() - 1);
-      }
-      for (var i = 0; i < data.rows.length; i++) {
-        sheet.appendRow(data.rows[i]);
-      }
-    } else if (data.row) {
-      sheet.appendRow(data.row);
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "success",
-      message: "Data synced successfully with P&L analysis",
-      timestamp: new Date().toISOString()
-    })).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      status: "error",
-      message: err.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-function doGet(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  var values = sheet.getDataRange().getValues();
-  return ContentService.createTextOutput(JSON.stringify({
-    status: "success",
-    rows: values
-  })).setMimeType(ContentService.MimeType.JSON);
-}
-`;

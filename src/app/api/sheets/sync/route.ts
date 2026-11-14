@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { orderToSheetRow, SHEETS_COLUMNS } from '@/lib/sheets';
 import { Order } from '@/types/order';
+import { interpretSheetsReply } from '@/lib/sheets-reply';
 
 // In-memory cache for demo / server persistence during runtime
 let serverSyncedOrders: Order[] = [];
@@ -35,44 +36,38 @@ export async function POST(req: NextRequest) {
       serverSavedWebhookUrl = webhookUrl.trim();
     }
 
-    // หากมี webhookUrl ให้ forward ไปยัง Google Apps Script จาก server-side
+    // หากมี webhookUrl ให้ forward ไปยัง Google Apps Script จาก server-side แล้วอ่านคำตอบจริง
     if (effectiveWebhookUrl && effectiveWebhookUrl.startsWith('http')) {
-      try {
-        const payload = {
-          action: 'SYNC_ALL',
-          timestamp: lastSyncTimestamp,
-          count: targetOrders.length,
-          columns: SHEETS_COLUMNS,
-          rows: targetOrders.map(orderToSheetRow),
-          orders: targetOrders
-        };
+      const payload = body.payload || {
+        action: 'SYNC_ALL',
+        timestamp: lastSyncTimestamp,
+        count: targetOrders.length,
+        columns: SHEETS_COLUMNS,
+        rows: targetOrders.map(o => orderToSheetRow(o)),
+        orders: targetOrders
+      };
 
+      try {
         const remoteRes = await fetch(effectiveWebhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          redirect: 'follow',
+          signal: AbortSignal.timeout(25000)
         });
-
         const remoteText = await remoteRes.text();
-        return NextResponse.json({
-          success: true,
-          message: 'ซิงค์ข้อมูลกับ Google Sheets Webhook สำเร็จ',
-          timestamp: lastSyncTimestamp,
-          count: targetOrders.length,
-          remoteResponse: remoteText,
-          webhookUrl: effectiveWebhookUrl
-        });
+        const result = interpretSheetsReply(remoteRes.status, remoteText);
+        if (!result.ok) console.error('Sheets webhook rejected:', remoteRes.status, remoteText.slice(0, 300));
+        return NextResponse.json(
+          { success: result.ok, message: result.message, timestamp: lastSyncTimestamp, count: targetOrders.length },
+          { status: result.ok ? 200 : 502 }
+        );
       } catch (webhookErr: unknown) {
         console.error('Remote webhook error:', webhookErr);
-        // Fallback to local server success with notice
-        return NextResponse.json({
-          success: true,
-          isFallback: true,
-          message: `ซิงค์กับคลาวด์ท้องถิ่นแล้ว (Webhook ปลายทางเชื่อมต่อไม่ได้: ${webhookErr instanceof Error ? webhookErr.message : 'Error'})`,
-          timestamp: lastSyncTimestamp,
-          count: targetOrders.length,
-          webhookUrl: effectiveWebhookUrl
-        });
+        return NextResponse.json(
+          { success: false, message: 'ติดต่อ Google Sheets ไม่ได้ (หมดเวลา) — ลองใหม่อีกครั้ง', timestamp: lastSyncTimestamp },
+          { status: 502 }
+        );
       }
     }
 
