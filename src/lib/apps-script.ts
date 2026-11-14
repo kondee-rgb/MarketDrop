@@ -215,9 +215,10 @@ function rebuildSummary_(ss, orders, expenses) {
     if (rows.length) {
       sh.getRange(r + 2, 1, rows.length, w).setValues(rows);
       sh.getRange(r + 2, 3, rows.length, 4).setNumberFormat('#,##0');
-      for (var i = 0; i < rows.length; i++) {
-        sh.getRange(r + 2 + i, 6, 1, 1).setFontColor(rows[i][5] < 0 ? '#e11d48' : '#047857');
-      }
+      // one call for all rows (a call per row gets slow after a year of daily rows)
+      sh.getRange(r + 2, 6, rows.length, 1).setFontColors(rows.map(function (row) {
+        return [row[5] < 0 ? '#e11d48' : '#047857'];
+      }));
     }
     r += rows.length + 4;
   }
