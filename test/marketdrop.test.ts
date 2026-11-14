@@ -538,3 +538,124 @@ describe('8. Strict Non-Hallucination LINE Parser Tests', () => {
     expect(parsed.notes).toContain('นิติบุคคล');
   });
 });
+
+describe('9. Storage v4 Migration & Mock Data Purge Tests', () => {
+  it('should use v4 storage keys and initialize cleanly at 0 orders and 0 shopping items', async () => {
+    const { ORDERS_KEY, SHEETS_CONFIG_KEY, loadStoredOrders } = await import('../src/lib/storage');
+    const { SHOPPING_STATE_KEY, loadShoppingState } = await import('../src/lib/shopping-aggregator');
+
+    expect(ORDERS_KEY).toBe('marketdrop_orders_v4');
+    expect(SHEETS_CONFIG_KEY).toBe('marketdrop_sheets_config_v2');
+    expect(SHOPPING_STATE_KEY).toBe('marketdrop_shopping_state_v3');
+
+    const orders = loadStoredOrders();
+    expect(orders.length).toBe(0);
+
+    const shopState = loadShoppingState();
+    expect(shopState.boughtItemIds.length).toBe(0);
+    expect(shopState.manualItems.length).toBe(0);
+  });
+});
+
+describe('10. Shopping Allocation & Linking to Delivery Stops Tests', () => {
+  it('should allocate item to an existing house order', async () => {
+    const { allocateItemToHouse } = await import('../src/lib/shopping-aggregator');
+
+    const initialOrders: Order[] = [
+      {
+        id: 'ord-test-1',
+        stopNumber: 1,
+        houseNumber: '51/104',
+        soi: '',
+        locationId: 'ivy-river',
+        building: 'ตึก A',
+        customerName: 'คุณนก',
+        phone: '081-111-2222',
+        items: [{ id: 'it-1', name: 'ผักบุ้ง', quantity: '2', unit: 'กำ', price: 30 }],
+        totalAmount: 30,
+        paymentStatus: 'COD',
+        collectedAmount: 0,
+        paymentMethod: null,
+        deliveryStatus: 'PENDING',
+        deliveredAt: null,
+        notes: '',
+        createdAt: '',
+        updatedAt: ''
+      }
+    ];
+
+    // Allocate 1 kg pork to this existing order
+    const updated = allocateItemToHouse(initialOrders, 'หมูบด', 'กก.', {
+      houseNumber: '51/104',
+      locationId: 'ivy-river',
+      quantity: 1,
+      unit: 'กก.',
+      price: 140
+    });
+
+    expect(updated.length).toBe(1);
+    expect(updated[0].items.length).toBe(2);
+    expect(updated[0].items.some(i => i.name === 'หมูบด' && i.quantity === 1)).toBe(true);
+    expect(updated[0].totalAmount).toBe(170);
+  });
+
+  it('should create new delivery stop when allocating item to a new house', async () => {
+    const { allocateItemToHouse } = await import('../src/lib/shopping-aggregator');
+
+    const initialOrders: Order[] = [];
+
+    const updated = allocateItemToHouse(initialOrders, 'ไข่ไก่เบอร์ 1', 'แผง', {
+      houseNumber: '800/22',
+      soi: 'ซอย 2/1',
+      locationId: 'thanasin',
+      customerName: 'พี่หนุ่ม',
+      quantity: 2,
+      unit: 'แผง',
+      price: 270
+    });
+
+    expect(updated.length).toBe(1);
+    expect(updated[0].houseNumber).toBe('800/22');
+    expect(updated[0].soi).toBe('ซอย 2/1');
+    expect(updated[0].customerName).toBe('พี่หนุ่ม');
+    expect(updated[0].items.length).toBe(1);
+    expect(updated[0].items[0].name).toBe('ไข่ไก่เบอร์ 1');
+    expect(updated[0].items[0].quantity).toBe(2);
+    expect(updated[0].totalAmount).toBe(270);
+  });
+
+  it('should remove allocation and reallocate cleanly', async () => {
+    const {
+      allocateItemToHouse,
+      removeAllocationFromHouse,
+      reallocateItemHouse
+    } = await import('../src/lib/shopping-aggregator');
+
+    let orders: Order[] = [];
+    orders = allocateItemToHouse(orders, 'แตงกวา', 'กก.', {
+      houseNumber: '79/12',
+      customerName: 'บ้าน 1',
+      quantity: 1,
+      unit: 'กก.'
+    });
+
+    expect(orders.length).toBe(1);
+    expect(orders[0].items[0].name).toBe('แตงกวา');
+
+    // Reallocate to another house
+    orders = reallocateItemHouse(orders, 'แตงกวา', 'กก.', '79/12', {
+      houseNumber: '81/55',
+      customerName: 'บ้าน 2',
+      quantity: 1,
+      unit: 'กก.'
+    });
+
+    expect(orders.length).toBe(1);
+    expect(orders[0].houseNumber).toBe('81/55');
+    expect(orders[0].customerName).toBe('บ้าน 2');
+
+    // Remove allocation
+    orders = removeAllocationFromHouse(orders, 'แตงกวา', 'กก.', '81/55');
+    expect(orders.length).toBe(0);
+  });
+});

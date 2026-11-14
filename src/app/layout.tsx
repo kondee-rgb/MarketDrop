@@ -1,5 +1,13 @@
 import type { Metadata, Viewport } from 'next';
+import { Prompt } from 'next/font/google';
 import './globals.css';
+
+const promptFont = Prompt({
+  weight: ['300', '400', '500', '600', '700'],
+  subsets: ['thai', 'latin'],
+  display: 'swap',
+  variable: '--font-prompt'
+});
 
 export const metadata: Metadata = {
   title: 'MarketDrop | ระบบจัดการและส่งของสดตามบ้าน',
@@ -31,18 +39,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="th" className="h-full antialiased">
+    <html lang="th" className={`h-full antialiased ${promptFont.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-touch-fullscreen" content="yes" />
       </head>
-      <body className="min-h-full flex flex-col bg-[#f8faf9] text-slate-800 font-sans selection:bg-emerald-200 selection:text-emerald-950">
+      <body className={`min-h-full flex flex-col bg-[#f8faf9] text-slate-800 font-sans selection:bg-emerald-200 selection:text-emerald-950 ${promptFont.className}`}>
         {children}
         <script
           dangerouslySetInnerHTML={{

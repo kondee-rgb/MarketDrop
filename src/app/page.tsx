@@ -21,8 +21,12 @@ import {
 import {
   loadStoredOrders,
   saveStoredOrders,
+  clearStoredOrders,
+  hardResetAllData,
   loadSheetsConfig,
-  saveSheetsConfig
+  saveSheetsConfig,
+  MOCK_ORDER_IDS,
+  MOCK_CUSTOMER_NAMES
 } from '@/lib/storage';
 import { sortOrders } from '@/lib/natural-sort';
 import { syncToGoogleSheets } from '@/lib/sheets';
@@ -31,7 +35,10 @@ import {
   aggregateShoppingList,
   loadShoppingState,
   saveShoppingState,
-  detectCategory
+  detectCategory,
+  allocateItemToHouse,
+  removeAllocationFromHouse,
+  HouseAllocationParams
 } from '@/lib/shopping-aggregator';
 
 export default function MarketDropApp() {
@@ -54,7 +61,12 @@ export default function MarketDropApp() {
   // Load orders and shopping state on mount
   useEffect(() => {
     const stored = loadStoredOrders();
-    const sorted = sortOrders(stored, 'NATURAL_HOUSE', 'ASC');
+    const cleanOrders = stored.filter(
+      o =>
+        !MOCK_ORDER_IDS.includes(o.id) &&
+        !MOCK_CUSTOMER_NAMES.some(m => (o.customerName || '').includes(m))
+    );
+    const sorted = sortOrders(cleanOrders, 'NATURAL_HOUSE', 'ASC');
     setOrders(sorted);
     setSheetsConfig(loadSheetsConfig());
 
@@ -128,7 +140,7 @@ export default function MarketDropApp() {
         const updatedItems = o.items.map(it =>
           it.id === itemId ? { ...it, checked: !it.checked } : it
         );
-        return { ...o, items: updatedItems };
+        return { ...o, items: updatedItems, updatedAt: new Date().toISOString() };
       })
     );
   };
@@ -141,27 +153,31 @@ export default function MarketDropApp() {
     deliveredAt: string,
     partialReason?: string
   ) => {
-    const updated = orders.map(o => {
-      if (o.id !== orderId) return o;
-      return {
-        ...o,
-        deliveryStatus: 'DELIVERED' as const,
-        collectedAmount,
-        paymentMethod,
-        deliveredAt,
-        partialReason,
-        updatedAt: new Date().toISOString()
-      };
+    setOrders(prev => {
+      const updated = prev.map(o => {
+        if (o.id !== orderId) return o;
+        return {
+          ...o,
+          deliveryStatus: 'DELIVERED' as const,
+          collectedAmount,
+          paymentMethod,
+          deliveredAt,
+          partialReason,
+          paymentStatus:
+            collectedAmount >= o.totalAmount ? ('PAID' as const) : ('COD' as const),
+          items: o.items.map(it => ({ ...it, checked: true })),
+          updatedAt: new Date().toISOString()
+        };
+      });
+
+      if (sheetsConfig.autoSync) {
+        performSync(updated, true);
+      }
+      return updated;
     });
-
-    setOrders(updated);
-
-    if (sheetsConfig.autoSync) {
-      performSync(updated, true);
-    }
   };
 
-  // Revert delivery status
+  // Revert delivery to pending
   const handleRevertDelivery = (orderId: string) => {
     setOrders(prev =>
       prev.map(o => {
@@ -169,22 +185,24 @@ export default function MarketDropApp() {
         return {
           ...o,
           deliveryStatus: 'PENDING' as const,
-          collectedAmount: o.paymentStatus === 'PAID' ? o.totalAmount : 0,
           deliveredAt: null,
+          collectedAmount: 0,
+          paymentMethod: null,
+          paymentStatus: o.paymentStatus === 'PAID' && o.collectedAmount === 0 ? 'PAID' : 'COD',
           updatedAt: new Date().toISOString()
         };
       })
     );
   };
 
-  // Toggle bought item in Shopping View
+  // Toggle bought item in shopping mode
   const handleToggleBoughtItem = (itemId: string) => {
     setBoughtShoppingIds(prev =>
       prev.includes(itemId) ? prev.filter(id => id !== itemId) : [...prev, itemId]
     );
   };
 
-  // Add manual shopping item directly
+  // Add manual shopping item
   const handleAddManualShoppingItem = (
     name: string,
     quantity: string,
@@ -192,14 +210,13 @@ export default function MarketDropApp() {
     category: ShoppingItem['category']
   ) => {
     const newItem: ShoppingItem = {
-      id: `manual_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: `manual_${Date.now()}`,
       name,
       totalQuantity: quantity,
       unit,
-      category: category || detectCategory(name),
-      bought: false,
+      category,
       allocations: [],
-      sourceNote: 'เพิ่มโดยตรงจากหน้าร้าน/ตลาด'
+      bought: false
     };
     setManualShoppingItems(prev => [...prev, newItem]);
   };
@@ -208,6 +225,37 @@ export default function MarketDropApp() {
   const handleRemoveManualShoppingItem = (itemId: string) => {
     setManualShoppingItems(prev => prev.filter(it => it.id !== itemId));
     setBoughtShoppingIds(prev => prev.filter(id => id !== itemId));
+  };
+
+  // Allocate shopping item to a house stop in orders
+  const handleAllocateItem = (
+    itemName: string,
+    unit: string,
+    allocation: HouseAllocationParams,
+    manualItemIdToRemove?: string
+  ) => {
+    setOrders(prev => {
+      const updated = allocateItemToHouse(prev, itemName, unit, allocation);
+      return sortOrders(updated, sortMode, sortDirection);
+    });
+    if (manualItemIdToRemove) {
+      setManualShoppingItems(prev => prev.filter(it => it.id !== manualItemIdToRemove));
+    }
+    if (sheetsConfig.autoSync) {
+      performSync(orders, true);
+    }
+  };
+
+  // Remove allocation from a house stop in orders
+  const handleRemoveAllocation = (
+    itemName: string,
+    unit: string,
+    orderIdOrHouseNumber: string
+  ) => {
+    setOrders(prev => {
+      const updated = removeAllocationFromHouse(prev, itemName, unit, orderIdOrHouseNumber);
+      return sortOrders(updated, sortMode, sortDirection);
+    });
   };
 
   // Add new order from Photo Upload Modal
@@ -226,16 +274,14 @@ export default function MarketDropApp() {
     setManualShoppingItems(prev => [...prev, item]);
   };
 
-  // Reset sample data
+  // Reset sample data / Hard clear
   const handleResetSampleData = () => {
-    if (confirm('คุณต้องการรีเซ็ตข้อมูลเป็นชุดตัวอย่างตั้งต้นใช่หรือไม่?')) {
-      const sorted = sortOrders(INITIAL_SAMPLE_ORDERS, 'NATURAL_HOUSE', 'ASC');
-      setOrders(sorted);
+    if (confirm('คุณต้องการล้างข้อมูลออเดอร์และรายการซื้อของทั้งหมดใช่หรือไม่? (เริ่มต้นใหม่ 0 รายการ)')) {
+      hardResetAllData();
+      setOrders([]);
       setBoughtShoppingIds([]);
       setManualShoppingItems([]);
-      saveStoredOrders(sorted);
-      saveShoppingState({ boughtItemIds: [], manualItems: [] });
-      performSync(sorted, true);
+      setSyncResultMsg('ล้างข้อมูลทั้งหมดเรียบร้อยแล้ว');
     }
   };
 
@@ -295,7 +341,6 @@ export default function MarketDropApp() {
         syncStatus={syncStatus}
         sheetsConfig={sheetsConfig}
         onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
-        onOpenPhotoModal={() => setIsPhotoModalOpen(true)}
         onResetSampleData={handleResetSampleData}
         pendingDeliveriesCount={pendingDeliveriesCount}
         pendingShoppingCount={pendingShoppingCount}
@@ -315,6 +360,9 @@ export default function MarketDropApp() {
             onRemoveManualItem={handleRemoveManualShoppingItem}
             onOpenPhotoModal={() => setIsPhotoModalOpen(true)}
             onSwitchToDelivery={() => setActiveTab('delivery')}
+            existingOrders={orders}
+            onAllocateItem={handleAllocateItem}
+            onRemoveAllocation={handleRemoveAllocation}
           />
         )}
 
@@ -350,7 +398,6 @@ export default function MarketDropApp() {
         <MobileBottomNav
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          onOpenPhotoModal={() => setIsPhotoModalOpen(true)}
           pendingShoppingCount={pendingShoppingCount}
           pendingDeliveryCount={pendingDeliveriesCount}
         />

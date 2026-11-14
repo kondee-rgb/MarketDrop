@@ -1,4 +1,4 @@
-import { Order, ShoppingItem, ShoppingAllocation } from '@/types/order';
+import { Order, OrderItem, ShoppingItem, ShoppingAllocation } from '@/types/order';
 
 /**
  * จัดหมวดหมู่ของสดอัตโนมัติตามชื่อสินค้า
@@ -43,7 +43,11 @@ export const CATEGORY_LABELS: Record<ShoppingItem['category'], { label: string; 
   other: { label: 'สินค้าทั่วไป / เบ็ดเตล็ด', icon: '📦', bg: 'bg-slate-50 border-slate-200 text-slate-800' }
 };
 
-const SHOPPING_STATE_KEY = 'marketdrop_shopping_state_v2';
+export const SHOPPING_STATE_KEY = 'marketdrop_shopping_state_v3';
+const LEGACY_SHOPPING_KEYS = [
+  'marketdrop_shopping_state_v1',
+  'marketdrop_shopping_state_v2'
+];
 
 export interface SavedShoppingState {
   boughtItemIds: string[]; // รายการที่ติ๊กซื้อแล้ว
@@ -55,9 +59,21 @@ export function loadShoppingState(): SavedShoppingState {
     return { boughtItemIds: [], manualItems: [] };
   }
   try {
+    // ล้างแคชคีย์เก่า v1, v2
+    for (const legacyKey of LEGACY_SHOPPING_KEYS) {
+      if (localStorage.getItem(legacyKey) !== null) {
+        localStorage.removeItem(legacyKey);
+      }
+    }
+
     const raw = localStorage.getItem(SHOPPING_STATE_KEY);
     if (!raw) return { boughtItemIds: [], manualItems: [] };
-    return JSON.parse(raw);
+
+    const parsed = JSON.parse(raw);
+    return {
+      boughtItemIds: Array.isArray(parsed.boughtItemIds) ? parsed.boughtItemIds : [],
+      manualItems: Array.isArray(parsed.manualItems) ? parsed.manualItems : []
+    };
   } catch {
     return { boughtItemIds: [], manualItems: [] };
   }
@@ -113,11 +129,14 @@ export function aggregateShoppingList(
       current.totalQuantity = currentQty + numQty;
       current.estimatedPrice = (current.estimatedPrice || 0) + (it.price || 0);
 
-      // บันทึกการแบ่งส่งบ้าน
+      // บันทึกการแบ่งส่งบ้าน พร้อมรายละเอียดโครงการและซอย
       current.allocations.push({
         orderId: order.id,
         houseNumber: order.houseNumber,
         customerName: order.customerName,
+        soi: order.soi,
+        locationId: order.locationId,
+        building: order.building,
         quantity: it.quantity,
         unit: it.unit
       });
@@ -135,4 +154,178 @@ export function aggregateShoppingList(
     ...item,
     bought: boughtIds.includes(item.id)
   }));
+}
+
+/**
+ * ข้อมูลสำหรับการจัดสรรสินค้าไปยังบ้านลูกค้า (House Allocation)
+ */
+export interface HouseAllocationParams {
+  orderId?: string; // ถ้ามี จะระบุตรงไปยังออเดอร์นั้น
+  houseNumber: string; // เลขที่บ้าน เช่น "51/104", "800/22"
+  customerName?: string; // ชื่อลูกค้า เช่น "คุณนก", "พี่ก้อย"
+  soi?: string; // ซอย เช่น "ซอย 1/1"
+  locationId?: string; // โครงการ เช่น 'ivy-river', 'thanasin'
+  building?: string; // ตึก เช่น 'ตึก A', 'บ้านเดี่ยว'
+  phone?: string;
+  quantity: string | number; // จำนวน เช่น 1, 2, "0.5"
+  unit?: string; // หน่วย เช่น "กก.", "กำ"
+  price?: number; // ราคา (ถ้ามี)
+}
+
+/**
+ * ผูกหรือจัดสรรสินค้าจากหน้า Shopping ไปยังบ้านลูกค้าใน `orders`
+ * - หากมีออเดอร์ของบ้านนั้นอยู่แล้ว จะเพิ่มรายการสินค้าเข้าไปในออเดอร์เดิม
+ * - หากยังไม่มีออเดอร์ จะสร้างออเดอร์จุดส่ง (Delivery Stop) ใหม่ให้ทันที
+ */
+export function allocateItemToHouse(
+  orders: Order[],
+  itemName: string,
+  defaultUnit: string,
+  allocation: HouseAllocationParams
+): Order[] {
+  const cleanItemName = itemName.trim();
+  const cleanUnit = (allocation.unit || defaultUnit || 'ชิ้น').trim();
+  const now = new Date().toISOString();
+
+  // 1. ค้นหาออเดอร์เป้าหมาย
+  let targetOrderIndex = -1;
+
+  if (allocation.orderId) {
+    targetOrderIndex = orders.findIndex(o => o.id === allocation.orderId);
+  }
+
+  if (targetOrderIndex === -1 && allocation.houseNumber) {
+    targetOrderIndex = orders.findIndex(
+      o => o.houseNumber.trim() === allocation.houseNumber.trim() &&
+           (!allocation.locationId || o.locationId === allocation.locationId)
+    );
+  }
+
+  // 2. กรณีพบออเดอร์เดิม -> อัปเดตรายการสินค้าในออเดอร์นั้น
+  if (targetOrderIndex >= 0) {
+    const updatedOrders = [...orders];
+    const order = { ...updatedOrders[targetOrderIndex] };
+    const items = [...order.items];
+
+    // ตรวจสอบว่ามีสินค้านี้อยู่แล้วหรือไม่
+    const existingItemIndex = items.findIndex(
+      it => it.name.trim().toLowerCase() === cleanItemName.toLowerCase() &&
+            it.unit.trim().toLowerCase() === cleanUnit.toLowerCase()
+    );
+
+    if (existingItemIndex >= 0) {
+      const existing = items[existingItemIndex];
+      const prevQty = parseFloat(String(existing.quantity)) || 0;
+      const addQty = parseFloat(String(allocation.quantity)) || 0;
+      items[existingItemIndex] = {
+        ...existing,
+        quantity: prevQty + addQty,
+        price: (existing.price || 0) + (allocation.price || 0)
+      };
+    } else {
+      const newItem: OrderItem = {
+        id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: cleanItemName,
+        quantity: allocation.quantity,
+        unit: cleanUnit,
+        price: allocation.price,
+        checked: false,
+        category: detectCategory(cleanItemName)
+      };
+      items.push(newItem);
+    }
+
+    order.items = items;
+    order.totalAmount = items.reduce((sum, it) => sum + (it.price || 0), 0);
+    order.updatedAt = now;
+    if (allocation.customerName && (!order.customerName || order.customerName.includes('ลูกค้าบ้าน'))) {
+      order.customerName = allocation.customerName;
+    }
+    if (allocation.soi && !order.soi) {
+      order.soi = allocation.soi;
+    }
+
+    updatedOrders[targetOrderIndex] = order;
+    return updatedOrders;
+  }
+
+  // 3. กรณียังไม่มีออเดอร์ -> สร้างจุดส่งใหม่ให้บ้านลูกค้านี้
+  const newOrder: Order = {
+    id: `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    stopNumber: orders.length + 1,
+    houseNumber: allocation.houseNumber.trim(),
+    soi: allocation.soi || '',
+    locationId: allocation.locationId,
+    building: allocation.building,
+    customerName: allocation.customerName?.trim() || `ลูกค้าบ้าน ${allocation.houseNumber.trim()}`,
+    phone: allocation.phone || '',
+    items: [
+      {
+        id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: cleanItemName,
+        quantity: allocation.quantity,
+        unit: cleanUnit,
+        price: allocation.price,
+        checked: false,
+        category: detectCategory(cleanItemName)
+      }
+    ],
+    totalAmount: allocation.price || 0,
+    paymentStatus: 'COD',
+    collectedAmount: 0,
+    paymentMethod: null,
+    deliveryStatus: 'PENDING',
+    deliveredAt: null,
+    notes: '',
+    createdAt: now,
+    updatedAt: now
+  };
+
+  return [...orders, newOrder];
+}
+
+/**
+ * ลบการจัดสรรสินค้าออกจากบ้านเป้าหมาย
+ */
+export function removeAllocationFromHouse(
+  orders: Order[],
+  itemName: string,
+  unit: string,
+  orderIdOrHouseNumber: string
+): Order[] {
+  const cleanItemName = itemName.trim().toLowerCase();
+  const cleanUnit = unit.trim().toLowerCase();
+  const now = new Date().toISOString();
+
+  return orders
+    .map(order => {
+      const isTarget = order.id === orderIdOrHouseNumber || order.houseNumber.trim() === orderIdOrHouseNumber.trim();
+      if (!isTarget) return order;
+
+      const filteredItems = order.items.filter(
+        it => !(it.name.trim().toLowerCase() === cleanItemName && it.unit.trim().toLowerCase() === cleanUnit)
+      );
+
+      return {
+        ...order,
+        items: filteredItems,
+        totalAmount: filteredItems.reduce((sum, it) => sum + (it.price || 0), 0),
+        updatedAt: now
+      };
+    })
+    .filter(order => order.items.length > 0); // หากไม่มีสินค้าเหลือในบิล ให้ลบ stop ออกเพื่อความสะอาด
+}
+
+/**
+ * ย้ายการจัดสรรสินค้าจากบ้านหนึ่งไปยังอีกบ้านหนึ่ง
+ */
+export function reallocateItemHouse(
+  orders: Order[],
+  itemName: string,
+  unit: string,
+  fromOrderIdOrHouse: string,
+  toAllocation: HouseAllocationParams
+): Order[] {
+  const afterRemove = removeAllocationFromHouse(orders, itemName, unit, fromOrderIdOrHouse);
+  return allocateItemToHouse(afterRemove, itemName, unit, toAllocation);
 }

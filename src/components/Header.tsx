@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Truck, ShoppingCart, Package, FileSpreadsheet, RotateCcw, Camera } from 'lucide-react';
+import { Truck, ShoppingCart, Package, FileSpreadsheet, RotateCcw } from 'lucide-react';
 import { GoogleSheetsConfig, MainTabType } from '@/types/order';
 
 interface HeaderProps {
@@ -10,7 +10,7 @@ interface HeaderProps {
   syncStatus: 'synced' | 'syncing' | 'offline';
   sheetsConfig: GoogleSheetsConfig;
   onOpenSheetsModal: () => void;
-  onOpenPhotoModal: () => void;
+  onOpenPhotoModal?: () => void;
   onResetSampleData: () => void;
   pendingDeliveriesCount: number;
   pendingShoppingCount: number;
@@ -22,7 +22,6 @@ export function Header({
   syncStatus,
   sheetsConfig,
   onOpenSheetsModal,
-  onOpenPhotoModal,
   onResetSampleData,
   pendingDeliveriesCount,
   pendingShoppingCount
@@ -59,18 +58,18 @@ export function Header({
                 <span className="font-extrabold text-lg sm:text-xl tracking-tight text-slate-800 font-display">
                   Market<span className="text-emerald-600">Drop</span>
                 </span>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100/80 text-emerald-800 border border-emerald-200">
                   MOBILE
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 hidden sm:block truncate">
-                ระบบของสด: ตลาด ➔ ซื้อ ➔ ส่งหน้าบ้าน
+              <p className="text-[11px] text-slate-400 hidden sm:block">
+                ระบบจัดการและส่งของสดตามบ้าน • เรียลไทม์ {timeStr}
               </p>
             </div>
           </div>
 
-          {/* Desktop/Tablet 3 Main Tabs: ของที่ต้องซื้อ vs ที่ต้องส่ง vs จัดการออเดอร์ */}
-          <div className="hidden md:flex bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80 shadow-xs">
+          {/* Desktop Navigation Tabs (Hidden on mobile - mobile uses bottom nav) */}
+          <div className="hidden md:flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/80">
             {/* Tab 1: ของที่ต้องซื้อ */}
             <button
               onClick={() => setActiveTab('shopping')}
@@ -83,7 +82,7 @@ export function Header({
               <ShoppingCart className="w-4 h-4 text-emerald-600" />
               <span>🛒 ของที่ต้องซื้อ</span>
               {pendingShoppingCount > 0 && (
-                <span className="ml-1 bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                <span className="ml-1 bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
                   {pendingShoppingCount}
                 </span>
               )}
@@ -121,16 +120,8 @@ export function Header({
             </button>
           </div>
 
-          {/* Right Action: Camera Snap Button + Sheets Sync */}
+          {/* Right Action: Sheets Sync + Reset Data Button */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={onOpenPhotoModal}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
-            >
-              <Camera className="w-4 h-4" />
-              <span className="hidden sm:inline">ถ่ายรูป / คีย์</span>
-            </button>
-
             {/* Google Sheets Sync Pill */}
             <button
               onClick={onOpenSheetsModal}
@@ -158,11 +149,11 @@ export function Header({
               />
             </button>
 
-            {/* Reset sample button */}
+            {/* Reset / Clear Data button */}
             <button
               onClick={onResetSampleData}
-              title="รีเซ็ตข้อมูลตัวอย่าง"
-              className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+              title="ล้างข้อมูลทั้งหมด / รีเซ็ต"
+              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-100"
             >
               <RotateCcw className="w-4 h-4" />
             </button>

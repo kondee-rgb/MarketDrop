@@ -58,6 +58,9 @@ export interface ShoppingAllocation {
   orderId: string;
   houseNumber: string;
   customerName: string;
+  soi?: string;
+  locationId?: string;
+  building?: string;
   quantity: string | number;
   unit: string;
 }

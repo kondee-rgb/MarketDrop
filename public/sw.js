@@ -1,6 +1,5 @@
-const CACHE_NAME = 'marketdrop-cache-v1';
+const CACHE_NAME = 'marketdrop-cache-v4';
 const STATIC_ASSETS = [
-  '/',
   '/manifest.json',
   '/icon.svg',
   '/favicon.ico'
@@ -29,29 +28,35 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
 
-  // สำหรับ API route ให้ข้าม cache เพื่อให้ได้ข้อมูลสดใหม่
-  if (event.request.url.includes('/api/')) {
+  // สำหรับ API route และ navigation (เปิดหน้าเว็บใหม่) ให้ดึงจาก Network ก่อนเสมอ
+  if (event.request.mode === 'navigate' || event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 
+  // สำหรับ Static assets อื่นๆ ใช้ Cache First และอัปเดตเบื้องหลัง
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        // อัปเดต cache สำหรับหน้าเว็บ
-        if (response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, clone);
-          });
-        }
-        return response;
-      })
-      .catch(() => {
-        // หากไม่มีเน็ต ให้ดึงจาก cache
-        return caches.match(event.request).then(cached => {
-          if (cached) return cached;
-          return caches.match('/');
-        });
-      })
+    caches.match(event.request).then(cached => {
+      const fetchPromise = fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => cached);
+      return cached || fetchPromise;
+    })
   );
 });
