@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { geminiImageToJson, getGeminiApiKey } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const apiKey = getGeminiApiKey();
 
     // ถ้าไม่มี API Key ให้ตอบกลับข้อมูลโครงสร้างพื้นฐานเพื่อให้ผู้ใช้คีย์มือต่อ
     if (!apiKey) {
@@ -32,9 +33,6 @@ export async function POST(req: NextRequest) {
         }
       });
     }
-
-    // ตัดส่วน prefix data:image/...;base64, ออกหากมี
-    const cleanBase64 = imageBase64.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, '');
 
     const promptText = `
 คุณคือผู้ช่วยจัดการร้านส่งของสดตามบ้าน (MarketDrop)
@@ -67,47 +65,7 @@ export async function POST(req: NextRequest) {
 - หากในรูปเป็นรายการของสดที่ต้องซื้อในตลาด (Shopping List) ให้สกัดรายการในอาร์เรย์ items ออกมาให้ครบถ้วนที่สุด
 `;
 
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-    const payload = {
-      contents: [
-        {
-          parts: [
-            { text: promptText },
-            {
-              inline_data: {
-                mime_type: mimeType,
-                data: cleanBase64
-              }
-            }
-          ]
-        }
-      ],
-      generationConfig: {
-        response_mime_type: 'application/json'
-      }
-    };
-
-    const response = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Gemini API Error:', errText);
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const resData = await response.json();
-    const candidate = resData.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!candidate) {
-      throw new Error('ไม่พบคำตอบจาก Gemini');
-    }
-
-    const parsedJson = JSON.parse(candidate);
+    const parsedJson = await geminiImageToJson(promptText, imageBase64, mimeType, apiKey);
 
     return NextResponse.json({
       success: true,

@@ -35,7 +35,8 @@ interface DriverViewProps {
     collectedAmount: number,
     paymentMethod: PaymentMethod,
     deliveredAt: string,
-    partialReason?: string
+    partialReason?: string,
+    slipRef?: string
   ) => void;
   onRevertDelivery: (orderId: string) => void;
   onOpenPhotoModal?: () => void;
@@ -492,8 +493,9 @@ export function DriverView({
           order={activeConfirmOrder}
           isOpen={Boolean(activeConfirmOrder)}
           onClose={() => setActiveConfirmOrder(null)}
-          onConfirmDelivery={(orderId, collectedAmount, paymentMethod, deliveredAt, partialReason) => {
-            onConfirmDelivery(orderId, collectedAmount, paymentMethod, deliveredAt, partialReason);
+          usedSlipRefs={orders.map(o => o.slipRef).filter((r): r is string => Boolean(r))}
+          onConfirmDelivery={(orderId, collectedAmount, paymentMethod, deliveredAt, partialReason, slipRef) => {
+            onConfirmDelivery(orderId, collectedAmount, paymentMethod, deliveredAt, partialReason, slipRef);
             setActiveConfirmOrder(null);
           }}
         />

@@ -1054,3 +1054,69 @@ describe('16. Store/Stall-based Shopping Consolidation Tests', () => {
     expect(stallGroups[1].isCompleted).toBe(true);
   });
 });
+
+describe('17. Slip OCR Verification, Quick Messages, Collection Stats & Local Dates', () => {
+  const baseOrder: Order = {
+    id: 'ord-17',
+    stopNumber: 1,
+    houseNumber: '45/10',
+    soi: '',
+    customerName: 'พี่นก',
+    phone: '',
+    items: [{ id: 'i1', name: 'หมูบด', quantity: 1, unit: 'กก.' }],
+    totalAmount: 250,
+    paymentStatus: 'COD',
+    collectedAmount: 0,
+    paymentMethod: null,
+    deliveryStatus: 'PENDING',
+    deliveredAt: null,
+    notes: '',
+    createdAt: '',
+    updatedAt: ''
+  };
+
+  it('should sanitize model output and evaluate slips (match / mismatch / duplicate / not a slip)', async () => {
+    const { sanitizeSlipData, evaluateSlip } = await import('../src/lib/slip-check');
+
+    const slip = sanitizeSlipData({ isSlip: true, amount: '1,250.00', transRef: '0153 1234-ABC', bank: 'KBank' });
+    expect(slip.amount).toBe(1250);
+    expect(slip.senderName).toBe('');
+
+    expect(evaluateSlip(slip, 1250).verdict).toBe('MATCH');
+    const short = evaluateSlip(slip, 1300);
+    expect(short.verdict).toBe('AMOUNT_MISMATCH');
+    expect(short.diff).toBe(-50);
+    expect(evaluateSlip(slip, 1250, ['01531234abc']).verdict).toBe('DUPLICATE');
+    expect(evaluateSlip(sanitizeSlipData({ isSlip: false }), 100).verdict).toBe('NOT_A_SLIP');
+    expect(evaluateSlip(sanitizeSlipData('garbage'), 100).verdict).toBe('NOT_A_SLIP');
+  });
+
+  it('should fill quick message templates with order data', async () => {
+    const { fillMessageTemplate, DEFAULT_QUICK_MESSAGES } = await import('../src/lib/customer-notify');
+    expect(DEFAULT_QUICK_MESSAGES.length).toBeGreaterThan(0);
+    const text = fillMessageTemplate('{ชื่อ} บ้าน {บ้าน} ยอด {ยอด} บาท ({รายการ})', { ...baseOrder, totalAmount: 1250 });
+    expect(text).toBe('พี่นก บ้าน 45/10 ยอด 1,250 บาท (หมูบด 1 กก.)');
+  });
+
+  it('should split collected vs outstanding money by payment method', async () => {
+    const { calculateCollectionStats } = await import('../src/lib/profit-aggregator');
+    const stats = calculateCollectionStats([
+      { ...baseOrder, id: 'a', deliveryStatus: 'DELIVERED', paymentMethod: 'CASH', collectedAmount: 250 },
+      { ...baseOrder, id: 'b', deliveryStatus: 'DELIVERED', paymentMethod: 'UNPAID', collectedAmount: 100 },
+      { ...baseOrder, id: 'c', paymentStatus: 'PAID' }, // prepaid, not yet delivered
+      { ...baseOrder, id: 'd' }, // COD pending
+      { ...baseOrder, id: 'e', deliveryStatus: 'CANCELLED' }
+    ]);
+    expect(stats.billed).toBe(1000);
+    expect(stats.byMethod).toEqual({ TRANSFER: 250, CASH: 250, QR_SCAN: 0, PARTIAL: 100 });
+    expect(stats.collected).toBe(600);
+    expect(stats.outstanding).toBe(400);
+    expect(stats.avgOrderValue).toBe(250);
+  });
+
+  it('should format local dates without UTC shift (early-morning market runs)', async () => {
+    const { toLocalDateStr } = await import('../src/lib/historical-profit');
+    expect(toLocalDateStr(new Date(2026, 10, 15, 1, 30))).toBe('2026-11-15');
+    expect(toLocalDateStr(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
+  });
+});

@@ -25,6 +25,7 @@ import {
   detectLocationFromText,
   LocationConfig
 } from '@/lib/locations';
+import { compressImageFile } from '@/lib/image';
 import {
   FrequentContact,
   getFrequentContacts,
@@ -179,15 +180,14 @@ export function PhotoToOrderModal({
 
   const handleImageSelected = async (file: File) => {
     setErrorMsg(null);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64Data = reader.result as string;
-      setSelectedImage(base64Data);
-
+    try {
+      const { dataUrl, mimeType } = await compressImageFile(file);
+      setSelectedImage(dataUrl);
       // Trigger AI parsing automatically
-      await parseImageWithAI(base64Data, file.type);
-    };
-    reader.readAsDataURL(file);
+      await parseImageWithAI(dataUrl, mimeType);
+    } catch {
+      setErrorMsg('อ่านไฟล์รูปไม่สำเร็จ ลองเลือกรูปใหม่อีกครั้ง');
+    }
   };
 
   const parseImageWithAI = async (base64: string, mimeType: string) => {

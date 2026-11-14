@@ -120,3 +120,60 @@ export function getDeliveryNotificationData(
     totalAmount: order.totalAmount || 0
   };
 }
+
+/* ---------------- Quick Messages (ข้อความด่วนที่ส่งประจำ) ---------------- */
+
+const QUICK_MESSAGES_KEY = 'marketdrop_quick_messages_v1';
+const DRIVER_NAME_KEY = 'marketdrop_driver_name_v1';
+
+/** ใช้ {ชื่อ} {บ้าน} {ยอด} {รายการ} เป็นช่องเติมอัตโนมัติ */
+export const DEFAULT_QUICK_MESSAGES: string[] = [
+  'สวัสดีครับ {ชื่อ} 🛵 ถึงหน้าบ้าน {บ้าน} แล้วครับ',
+  'วางของไว้หน้าบ้าน {บ้าน} เรียบร้อยแล้วครับ 🙏',
+  'รบกวนโอนยอด {ยอด} บาท ได้เลยครับ ขอบคุณครับ',
+  'ขออภัยครับ วันนี้ของบางรายการหมด ขอเปลี่ยนเป็นอย่างอื่นได้ไหมครับ',
+  'โทรหาแล้วไม่ติด รบกวนติดต่อกลับด้วยครับ 📞',
+  'ขอบคุณที่อุดหนุน MarketDrop นะครับ 💚'
+];
+
+export function fillMessageTemplate(template: string, order: Order): string {
+  return template
+    .replaceAll('{ชื่อ}', order.customerName || 'ลูกค้า')
+    .replaceAll('{บ้าน}', order.houseNumber || '')
+    .replaceAll('{ยอด}', (order.totalAmount || 0).toLocaleString('th-TH'))
+    .replaceAll('{รายการ}', formatShortItemList(order.items));
+}
+
+export function loadQuickMessages(): string[] {
+  if (typeof window === 'undefined') return [...DEFAULT_QUICK_MESSAGES];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(QUICK_MESSAGES_KEY) || 'null');
+    return Array.isArray(parsed) ? parsed.filter((m): m is string => typeof m === 'string') : [...DEFAULT_QUICK_MESSAGES];
+  } catch {
+    return [...DEFAULT_QUICK_MESSAGES];
+  }
+}
+
+export function saveQuickMessages(list: string[]): void {
+  try {
+    localStorage.setItem(QUICK_MESSAGES_KEY, JSON.stringify(list));
+  } catch {
+    // storage full / private mode — keep in memory only
+  }
+}
+
+export function loadDriverName(): string {
+  try {
+    return localStorage.getItem(DRIVER_NAME_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+export function saveDriverName(name: string): void {
+  try {
+    localStorage.setItem(DRIVER_NAME_KEY, name);
+  } catch {
+    // ignore
+  }
+}

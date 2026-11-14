@@ -45,7 +45,7 @@ export function Header({
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md text-slate-800 shadow-xs border-b border-emerald-100/80">
+    <header className="sticky top-0 z-30 pt-safe bg-white/80 backdrop-blur-xl backdrop-saturate-150 text-slate-800 shadow-xs border-b border-emerald-100/80">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5">
         <div className="flex items-center justify-between gap-2">
           {/* Logo & Brand */}

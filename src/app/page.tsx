@@ -150,6 +150,15 @@ export default function MarketDropApp() {
     [sheetsConfig.webhookUrl]
   );
 
+  // Sort, store and (optionally) sync the exact list we just built — avoids syncing stale state
+  const commitOrders = (next: Order[], resort = true) => {
+    const finalOrders = resort ? sortOrders(next, sortMode, sortDirection) : next;
+    setOrders(finalOrders);
+    if (sheetsConfig.autoSync) {
+      performSync(finalOrders, true);
+    }
+  };
+
   // Sorting Handler
   const handleApplySorting = (mode: SortMode, dir: SortDirection = sortDirection) => {
     setSortMode(mode);
@@ -176,30 +185,26 @@ export default function MarketDropApp() {
     collectedAmount: number,
     paymentMethod: PaymentMethod,
     deliveredAt: string,
-    partialReason?: string
+    partialReason?: string,
+    slipRef?: string
   ) => {
-    setOrders(prev => {
-      const updated = prev.map(o => {
-        if (o.id !== orderId) return o;
-        return {
-          ...o,
-          deliveryStatus: 'DELIVERED' as const,
-          collectedAmount,
-          paymentMethod,
-          deliveredAt,
-          partialReason,
-          paymentStatus:
-            collectedAmount >= o.totalAmount ? ('PAID' as const) : ('COD' as const),
-          items: o.items.map(it => ({ ...it, checked: true })),
-          updatedAt: new Date().toISOString()
-        };
-      });
-
-      if (sheetsConfig.autoSync) {
-        performSync(updated, true);
-      }
-      return updated;
+    const updated = orders.map(o => {
+      if (o.id !== orderId) return o;
+      return {
+        ...o,
+        deliveryStatus: 'DELIVERED' as const,
+        collectedAmount,
+        paymentMethod,
+        deliveredAt,
+        partialReason,
+        slipRef: slipRef || o.slipRef,
+        paymentStatus:
+          collectedAmount >= o.totalAmount ? ('PAID' as const) : ('COD' as const),
+        items: o.items.map(it => ({ ...it, checked: true })),
+        updatedAt: new Date().toISOString()
+      };
     });
+    commitOrders(updated, false);
   };
 
   // Revert delivery to pending
@@ -213,7 +218,8 @@ export default function MarketDropApp() {
           deliveredAt: null,
           collectedAmount: 0,
           paymentMethod: null,
-          paymentStatus: o.paymentStatus === 'PAID' && o.collectedAmount === 0 ? 'PAID' : 'COD',
+          // prepaid (transfer) orders stay PAID; cash/QR collected at the door go back to COD
+          paymentStatus: o.paymentMethod === 'TRANSFER' ? 'PAID' : 'COD',
           updatedAt: new Date().toISOString()
         };
       })
@@ -259,15 +265,9 @@ export default function MarketDropApp() {
     allocation: HouseAllocationParams,
     manualItemIdToRemove?: string
   ) => {
-    setOrders(prev => {
-      const updated = allocateItemToHouse(prev, itemName, unit, allocation);
-      return sortOrders(updated, sortMode, sortDirection);
-    });
+    commitOrders(allocateItemToHouse(orders, itemName, unit, allocation));
     if (manualItemIdToRemove) {
       setManualShoppingItems(prev => prev.filter(it => it.id !== manualItemIdToRemove));
-    }
-    if (sheetsConfig.autoSync) {
-      performSync(orders, true);
     }
   };
 
@@ -299,42 +299,20 @@ export default function MarketDropApp() {
 
   // Add new order from Photo Upload Modal
   const handleAddOrderFromPhoto = (newOrder: Order) => {
-    setOrders(prev => {
-      const combined = [...prev, newOrder];
-      return sortOrders(combined, sortMode, sortDirection);
-    });
-    if (sheetsConfig.autoSync) {
-      performSync([...orders, newOrder], true);
-    }
+    commitOrders([...orders, newOrder]);
   };
 
   // Add orders from Line Paste Modal
   const handleAddOrdersFromPaste = (newOrders: Order[]) => {
-    setOrders(prev => {
-      const combined = [...prev, ...newOrders];
-      return sortOrders(combined, sortMode, sortDirection);
-    });
-    if (sheetsConfig.autoSync) {
-      performSync([...orders, ...newOrders], true);
-    }
+    commitOrders([...orders, ...newOrders]);
   };
 
   // Save order from Manual Order Modal
   const handleSaveOrderManual = (orderToSave: Order) => {
-    setOrders(prev => {
-      const idx = prev.findIndex(o => o.id === orderToSave.id);
-      let updated: Order[];
-      if (idx >= 0) {
-        updated = [...prev];
-        updated[idx] = orderToSave;
-      } else {
-        updated = [...prev, orderToSave];
-      }
-      return sortOrders(updated, sortMode, sortDirection);
-    });
-    if (sheetsConfig.autoSync) {
-      performSync([...orders, orderToSave], true);
-    }
+    const exists = orders.some(o => o.id === orderToSave.id);
+    commitOrders(
+      exists ? orders.map(o => (o.id === orderToSave.id ? orderToSave : o)) : [...orders, orderToSave]
+    );
   };
 
   // Add shopping item from Photo Upload Modal
@@ -425,6 +403,7 @@ export default function MarketDropApp() {
       {/* Main Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6">
         {/* Route Summary Bar: แสดงเฉพาะในแท็บจัดการ (Admin) เท่านั้น ตามที่ผู้ใช้ระบุ */}
+        <div key={activeTab} className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         {activeTab === 'admin' && <RouteSummary orders={orders} />}
 
         {/* TAB 1: ของที่ต้องซื้อ (Market Shopping List) */}
@@ -480,6 +459,7 @@ export default function MarketDropApp() {
             onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
           />
         )}
+        </div>
       </main>
 
       {/* Mobile Sticky Bottom Navigation (Optimized for 1-hand thumb use) */}

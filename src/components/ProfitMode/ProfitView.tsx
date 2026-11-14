@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp,
   DollarSign,
@@ -21,7 +21,9 @@ import {
   X,
   HelpCircle,
   Calendar,
-  BarChart3
+  BarChart3,
+  Wallet,
+  Trophy
 } from 'lucide-react';
 import { Order, ShoppingItem, GoogleSheetsConfig } from '@/types/order';
 import { FuelConfig, getFuelConfig, saveFuelConfig } from '@/lib/fuel-calc';
@@ -35,12 +37,14 @@ import {
 import {
   DailyProfitSummary,
   calculateDailyProfit,
+  calculateCollectionStats,
   ItemProfitDetail
 } from '@/lib/profit-aggregator';
 import { CATEGORY_LABELS } from '@/lib/shopping-aggregator';
 import {
   getProfitAnalyticsByPeriod,
   saveDailyProfitSnapshot,
+  toLocalDateStr,
   AnalyticsPeriod,
   PeriodProfitAnalytics,
   DailyTrendPoint
@@ -88,7 +92,7 @@ export function ProfitView({
 
   // Historical Analytics state
   const [selectedPeriod, setSelectedPeriod] = useState<AnalyticsPeriod>('today');
-  const [customDate, setCustomDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [customDate, setCustomDate] = useState<string>(() => toLocalDateStr());
 
   useEffect(() => {
     setPriceBookEntries(getPriceBook());
@@ -110,16 +114,26 @@ export function ProfitView({
   };
 
   // Recalculate P&L live
-  const profitSummary: DailyProfitSummary = calculateDailyProfit(
-    orders,
-    fuelConfig,
-    manualShoppingItems
+  const profitSummary: DailyProfitSummary = useMemo(
+    () => calculateDailyProfit(orders, fuelConfig, manualShoppingItems),
+    [orders, fuelConfig, manualShoppingItems]
+  );
+  const collection = useMemo(() => calculateCollectionStats(orders), [orders]);
+  const paymentSegments = [
+    { key: 'TRANSFER', label: 'โอน', value: collection.byMethod.TRANSFER, color: 'bg-emerald-500' },
+    { key: 'QR_SCAN', label: 'สแกน QR', value: collection.byMethod.QR_SCAN, color: 'bg-sky-500' },
+    { key: 'CASH', label: 'เงินสด', value: collection.byMethod.CASH, color: 'bg-teal-300' },
+    { key: 'PARTIAL', label: 'จ่ายบางส่วน', value: collection.byMethod.PARTIAL, color: 'bg-violet-300' },
+    { key: 'OUT', label: 'ค้าง', value: collection.outstanding, color: 'bg-amber-300' }
+  ].filter(seg => seg.value > 0);
+  const topItems = useMemo(
+    () => profitSummary.itemsBreakdown.filter(it => it.profit > 0).sort((a, b) => b.profit - a.profit).slice(0, 3),
+    [profitSummary]
   );
 
   // Auto-save today's snapshot on profit summary changes
   useEffect(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    saveDailyProfitSnapshot(todayStr, profitSummary);
+    saveDailyProfitSnapshot(toLocalDateStr(), profitSummary);
   }, [profitSummary]);
 
   // Query analytics for selected period
@@ -127,6 +141,12 @@ export function ProfitView({
     selectedPeriod,
     customDate,
     customDate
+  );
+
+  const maxAbsTrendProfit = Math.max(1, ...periodAnalytics.dailyTrends.map(d => Math.abs(d.netProfit)));
+  const bestDay = periodAnalytics.dailyTrends.reduce<DailyTrendPoint | null>(
+    (best, d) => (!best || d.netProfit > best.netProfit ? d : best),
+    null
   );
 
   // Handle saving edited item cost/price
@@ -384,6 +404,79 @@ export function ProfitView({
         </div>
       </div>
 
+      {/* Collection & Insights Card (live, today) */}
+      {selectedPeriod === 'today' && collection.billed > 0 && (
+        <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center border border-sky-100">
+              <Wallet className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 font-display">สถานะการเก็บเงินวันนี้</h3>
+              <p className="text-[11px] text-slate-500">เก็บแล้ว vs ยังค้าง แยกตามช่องทาง</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200/70 p-2.5">
+              <p className="text-[10px] text-emerald-700">ได้รับแล้ว</p>
+              <p className="text-sm font-bold text-emerald-800 tabular-nums">฿{collection.collected.toLocaleString()}</p>
+            </div>
+            <div className="rounded-2xl bg-amber-50/80 border border-amber-200/80 p-2.5">
+              <p className="text-[10px] text-amber-800">ยังค้างเก็บ</p>
+              <p className="text-sm font-bold text-amber-900 tabular-nums">฿{collection.outstanding.toLocaleString()}</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 border border-slate-200/80 p-2.5">
+              <p className="text-[10px] text-slate-500">เฉลี่ย/บิล</p>
+              <p className="text-sm font-bold text-slate-800 tabular-nums">฿{collection.avgOrderValue.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Stacked payment-mix bar */}
+          <div className="space-y-2">
+            <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100 gap-0.5">
+              {paymentSegments.map(seg => (
+                  <div
+                    key={seg.key}
+                    title={`${seg.label} ฿${seg.value.toLocaleString()}`}
+                    className={`${seg.color} animate-grow`}
+                    style={{ width: `${(seg.value / collection.billed) * 100}%` }}
+                  />
+                ))}
+            </div>
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-600">
+              {paymentSegments.map(seg => (
+                  <span key={seg.key} className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${seg.color}`} />
+                    {seg.label} <strong className="tabular-nums text-slate-800">฿{seg.value.toLocaleString()}</strong>
+                  </span>
+                ))}
+            </div>
+          </div>
+
+          {topItems.length > 0 && topItems[0].profit > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Trophy className="w-3.5 h-3.5 text-amber-500" />
+                สินค้าทำกำไรสูงสุด
+              </p>
+              {topItems.map((it, i) => (
+                <div key={it.name} className="flex items-center justify-between text-xs bg-slate-50 rounded-xl px-3 py-2 border border-slate-200/60">
+                  <span className="text-slate-700">
+                    <span className="mr-1.5">{['🥇', '🥈', '🥉'][i]}</span>
+                    {it.name}
+                    <span className="text-slate-400"> · {it.orderCount} บ้าน</span>
+                  </span>
+                  <strong className={`tabular-nums ${it.profit < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                    ฿{it.profit.toLocaleString()} <span className="font-normal text-slate-400">({it.marginPercent}%)</span>
+                  </strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Daily Trends Visualization Bar */}
       <div className="bg-white rounded-3xl p-5 shadow-xs border border-slate-200/80 space-y-3">
         <div className="flex items-center justify-between">
@@ -431,15 +524,16 @@ export function ProfitView({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between text-[11px] mb-1">
                     <span className="text-slate-500">ขาย: ฿{day.revenue.toLocaleString()}</span>
-                    <span className="font-bold text-emerald-700">
+                    <span className={`font-bold tabular-nums ${day.netProfit < 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                      {bestDay?.date === day.date && periodAnalytics.dailyTrends.length > 1 ? '🏆 ' : ''}
                       กำไร: ฿{day.netProfit.toLocaleString()} ({day.marginPercent}%)
                     </span>
                   </div>
                   <div className="w-full bg-slate-200/80 rounded-full h-2 overflow-hidden flex">
                     <div
-                      className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                      className={`animate-grow h-2 rounded-full ${day.netProfit < 0 ? 'bg-rose-400' : 'bg-emerald-500'}`}
                       style={{
-                        width: `${Math.min(100, Math.max(8, (day.netProfit / (day.revenue || 1)) * 100))}%`
+                        width: `${Math.max(3, (Math.abs(day.netProfit) / maxAbsTrendProfit) * 100)}%`
                       }}
                     />
                   </div>

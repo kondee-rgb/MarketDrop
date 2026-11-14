@@ -1,9 +1,17 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, CheckCircle, Banknote, QrCode, AlertTriangle, Clock, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, CheckCircle, Banknote, QrCode, AlertTriangle, Clock, ShieldCheck, ScanLine, Loader2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Order, PaymentMethod } from '@/types/order';
+import { compressImageFile } from '@/lib/image';
+import { evaluateSlip, SlipData, SlipEvaluation } from '@/lib/slip-check';
+
+type SlipState =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'done'; data: SlipData; evaluation: SlipEvaluation }
+  | { status: 'error'; message: string };
 
 interface PaymentConfirmModalProps {
   order: Order | null;
@@ -14,16 +22,21 @@ interface PaymentConfirmModalProps {
     collectedAmount: number,
     paymentMethod: PaymentMethod,
     deliveredAt: string,
-    partialReason?: string
+    partialReason?: string,
+    slipRef?: string
   ) => void;
+  usedSlipRefs?: string[];
 }
 
 export function PaymentConfirmModal({
   order,
   isOpen,
   onClose,
-  onConfirmDelivery
+  onConfirmDelivery,
+  usedSlipRefs = []
 }: PaymentConfirmModalProps) {
+  const [slip, setSlip] = useState<SlipState>({ status: 'idle' });
+  const slipInputRef = useRef<HTMLInputElement>(null);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('CASH');
   const [collectedAmount, setCollectedAmount] = useState<number>(0);
   const [partialReason, setPartialReason] = useState<string>('');
@@ -40,6 +53,7 @@ export function PaymentConfirmModal({
         setCollectedAmount(order.totalAmount);
       }
       setPartialReason('');
+      setSlip({ status: 'idle' });
 
       const now = new Date();
       const dateFormatted = now.toLocaleDateString('th-TH', {
@@ -69,6 +83,29 @@ export function PaymentConfirmModal({
     }
   };
 
+  const handleSlipSelected = async (file: File) => {
+    setSlip({ status: 'checking' });
+    try {
+      const { dataUrl, mimeType } = await compressImageFile(file, 1400, 0.85);
+      const res = await fetch('/api/verify-slip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: dataUrl, mimeType })
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setSlip({ status: 'error', message: json.message || 'ตรวจสลิปไม่สำเร็จ' });
+        return;
+      }
+      const otherRefs = usedSlipRefs.filter(r => r !== order.slipRef);
+      setSlip({ status: 'done', data: json.data, evaluation: evaluateSlip(json.data, order.totalAmount, otherRefs) });
+    } catch {
+      setSlip({ status: 'error', message: 'เชื่อมต่อไม่ได้ ลองใหม่อีกครั้ง' });
+    }
+  };
+
+  const showSlipCheck = selectedMethod === 'QR_SCAN' || selectedMethod === 'TRANSFER';
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -88,7 +125,8 @@ export function PaymentConfirmModal({
       collectedAmount,
       selectedMethod,
       currentTimeFormatted,
-      partialReason
+      partialReason,
+      slip.status === 'done' && slip.evaluation.verdict === 'MATCH' ? slip.data.transRef || undefined : undefined
     );
     onClose();
   };
@@ -274,6 +312,76 @@ export function PaymentConfirmModal({
                   className="w-full mt-1 px-3 py-2 text-xs rounded-xl border border-amber-400 bg-white"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Slip OCR Check */}
+          {showSlipCheck && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
+              <input
+                ref={slipInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) handleSlipSelected(f);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => slipInputRef.current?.click()}
+                disabled={slip.status === 'checking'}
+                className="w-full py-2.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-800 text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {slip.status === 'checking' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>กำลังอ่านสลิป...</span>
+                  </>
+                ) : (
+                  <>
+                    <ScanLine className="w-4 h-4" />
+                    <span>{slip.status === 'done' ? 'ตรวจสลิปใบใหม่' : 'ถ่าย/เลือกรูปสลิปเพื่อตรวจยอด'}</span>
+                  </>
+                )}
+              </button>
+
+              {slip.status === 'error' && (
+                <p className="animate-in fade-in duration-200 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+                  {slip.message}
+                </p>
+              )}
+
+              {slip.status === 'done' && (
+                <div
+                  className={`animate-in fade-in slide-in-from-bottom-2 duration-300 rounded-xl border px-3 py-2.5 text-xs space-y-1 ${
+                    slip.evaluation.verdict === 'MATCH'
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                      : slip.evaluation.verdict === 'DUPLICATE'
+                      ? 'bg-rose-50 border-rose-300 text-rose-900'
+                      : 'bg-amber-50 border-amber-300 text-amber-950'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold text-sm">
+                    <span>{slip.evaluation.verdict === 'MATCH' ? '✅' : '⚠️'} {slip.evaluation.message}</span>
+                    {slip.data.amount > 0 && <span className="tabular-nums">฿{slip.data.amount.toLocaleString()}</span>}
+                  </div>
+                  {(slip.data.bank || slip.data.transferredAt) && (
+                    <p className="opacity-80">{[slip.data.bank, slip.data.transferredAt].filter(Boolean).join(' · ')}</p>
+                  )}
+                  {(slip.data.senderName || slip.data.receiverName) && (
+                    <p className="opacity-80">
+                      {slip.data.senderName || '-'} → {slip.data.receiverName || '-'}
+                    </p>
+                  )}
+                  {slip.data.transRef && <p className="opacity-70 font-mono break-all">Ref: {slip.data.transRef}</p>}
+                </div>
+              )}
+              <p className="text-[10.5px] text-slate-400 leading-snug">
+                AI อ่านยอด/เลขอ้างอิงจากรูป และกันสลิปซ้ำ — ยังควรเช็กเงินเข้าในแอปธนาคารด้วย
+              </p>
             </div>
           )}
 

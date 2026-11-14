@@ -52,6 +52,12 @@ export interface PeriodProfitAnalytics {
   dailyTrends: DailyTrendPoint[];
 }
 
+/** YYYY-MM-DD in the device's local time (toISOString is UTC: before 07:00 in Thailand it gives yesterday) */
+export function toLocalDateStr(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 const PROFIT_HISTORY_KEY = 'marketdrop_daily_profit_history_v1';
 
 // In-memory cache for SSR / Node / Test environments
@@ -192,25 +198,25 @@ export function getProfitAnalyticsByPeriod(
 ): PeriodProfitAnalytics {
   const records = getHistoricalProfitRecords();
   const now = new Date();
-  const todayStr = now.toISOString().slice(0, 10);
+  const todayStr = toLocalDateStr(now);
 
   let startDate = todayStr;
-  const endDate = customEndDate || todayStr;
+  const endDate = period === 'custom' ? customEndDate || todayStr : todayStr;
 
   if (period === 'today') {
     startDate = todayStr;
   } else if (period === '7days') {
     const past7 = new Date(now);
     past7.setDate(past7.getDate() - 6);
-    startDate = past7.toISOString().slice(0, 10);
+    startDate = toLocalDateStr(past7);
   } else if (period === '30days') {
     const past30 = new Date(now);
     past30.setDate(past30.getDate() - 29);
-    startDate = past30.toISOString().slice(0, 10);
+    startDate = toLocalDateStr(past30);
   } else if (period === 'this_month') {
     startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
   } else if (period === 'all') {
-    startDate = records.length > 0 ? records[records.length - 1].date : todayStr;
+    startDate = records.reduce((min, r) => (r.date < min ? r.date : min), todayStr);
   } else if (period === 'custom') {
     startDate = customStartDate || todayStr;
   }

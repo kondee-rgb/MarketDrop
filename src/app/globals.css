@@ -3,6 +3,10 @@
 @theme {
   --font-sans: var(--font-prompt), 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: var(--font-prompt), 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Prompt is loaded at 300–700 only; cap heavy utilities so the browser never fakes a bolder weight */
+  --font-weight-extrabold: 700;
+  --font-weight-black: 700;
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 :root {
@@ -14,9 +18,35 @@ html, body, button, input, select, textarea {
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  overscroll-behavior-y: none;
+  font-feature-settings: "kern" 1;
+}
+
 h1, h2, h3, h4, h5, h6, .font-display {
   font-family: var(--font-prompt, var(--font-prompt-fallback)) !important;
+  letter-spacing: -0.005em;
 }
+
+/* iOS-style press feedback on every button (utility classes still win) */
+:where(button, [role="button"], a) {
+  touch-action: manipulation;
+  transition-property: transform, background-color, border-color, color, box-shadow, opacity;
+  transition-duration: 160ms;
+  transition-timing-function: var(--ease-ios);
+}
+:where(button:not(:disabled), [role="button"]):active {
+  transform: scale(0.97);
+}
+
+/* Safe-area helpers for PWA (status bar is translucent) */
+.pt-safe { padding-top: env(safe-area-inset-top); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
@@ -34,6 +64,25 @@ h1, h2, h3, h4, h5, h6, .font-display {
   background: #94a3b8;
 }
 
+/* Enter animations: `animate-in fade-in slide-in-from-bottom-4 duration-300` (no plugin installed, so defined here) */
+@keyframes md-enter {
+  from {
+    opacity: var(--md-enter-opacity, 1);
+    transform: translate3d(0, var(--md-enter-y, 0), 0) scale(var(--md-enter-scale, 1));
+  }
+}
+.animate-in {
+  /* `backwards`, not `both`: a lingering transform would trap position:fixed sheets inside the tab wrapper */
+  animation: md-enter var(--tw-duration, 320ms) var(--ease-ios) backwards;
+}
+.fade-in { --md-enter-opacity: 0; }
+.zoom-in-95 { --md-enter-scale: 0.95; }
+.slide-in-from-bottom-2 { --md-enter-y: 0.5rem; }
+.slide-in-from-bottom-4 { --md-enter-y: 1rem; }
+.slide-in-from-bottom-5 { --md-enter-y: 1.25rem; }
+.slide-in-from-bottom-6 { --md-enter-y: 1.5rem; }
+.slide-in-from-top-2 { --md-enter-y: -0.5rem; }
+
 /* Pulsing sync dot */
 @keyframes pulse-dot {
   0%, 100% {
@@ -48,4 +97,28 @@ h1, h2, h3, h4, h5, h6, .font-display {
 
 .animate-pulse-dot {
   animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse-subtle {
+  50% { opacity: 0.75; }
+}
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.4s ease-in-out infinite;
+}
+
+/* Bar grow for charts */
+@keyframes md-grow {
+  from { transform: scaleX(0); }
+}
+.animate-grow {
+  transform-origin: left;
+  animation: md-grow 600ms var(--ease-ios) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

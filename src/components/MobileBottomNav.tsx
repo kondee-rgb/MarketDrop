@@ -18,79 +18,62 @@ export function MobileBottomNav({
   pendingShoppingCount,
   pendingDeliveryCount
 }: MobileBottomNavProps) {
+  const tabs = [
+    { id: 'shopping' as const, label: 'ของที่ต้องซื้อ', Icon: ShoppingCart, badge: pendingShoppingCount },
+    { id: 'delivery' as const, label: 'ที่ต้องส่ง', Icon: Truck, badge: pendingDeliveryCount },
+    { id: 'profit' as const, label: 'สรุปกำไร', Icon: TrendingUp, badge: 0 },
+    { id: 'admin' as const, label: 'จัดการ/ชีต', Icon: Package, badge: 0 }
+  ];
+
+  const handleSelect = (tab: MainTabType) => {
+    if (tab === activeTab) return;
+    // Light haptic tick on Android (iOS Safari ignores vibrate)
+    try { navigator.vibrate?.(8); } catch { /* ignore */ }
+    setActiveTab(tab);
+  };
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-lg pb-safe">
-      <div className="max-w-md mx-auto px-2 py-1.5 grid grid-cols-4 gap-1">
-        {/* Tab 1: ของที่ต้องซื้อ */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('shopping')}
-          className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all ${
-            activeTab === 'shopping'
-              ? 'bg-emerald-50 text-emerald-800 font-bold shadow-xs border border-emerald-100'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          <div className="relative">
-            <ShoppingCart className={`w-5 h-5 ${activeTab === 'shopping' ? 'text-emerald-700' : 'text-slate-400'}`} />
-            {pendingShoppingCount > 0 && (
-              <span className="absolute -top-1 -right-2 bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[9px] min-w-3.5 h-3.5 px-0.5 rounded-full flex items-center justify-center">
-                {pendingShoppingCount > 99 ? '99+' : pendingShoppingCount}
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/80 backdrop-blur-xl backdrop-saturate-150 border-t border-slate-200/70 pb-safe">
+      <div className="max-w-md mx-auto px-2 pt-1.5 pb-1 grid grid-cols-4 gap-1">
+        {tabs.map(({ id, label, Icon, badge }) => {
+          const active = activeTab === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => handleSelect(id)}
+              aria-current={active ? 'page' : undefined}
+              className="relative flex flex-col items-center justify-center py-1 px-1 rounded-2xl"
+            >
+              <span
+                className={`relative flex items-center justify-center w-12 h-7 rounded-full transition-all duration-300 ${
+                  active ? 'bg-emerald-100/90 scale-100' : 'bg-transparent scale-90'
+                }`}
+              >
+                <Icon
+                  className={`w-[21px] h-[21px] transition-colors duration-200 ${active ? 'text-emerald-700' : 'text-slate-400'}`}
+                  strokeWidth={active ? 2.4 : 2}
+                />
+                {badge > 0 && (
+                  <span
+                    key={badge}
+                    className="animate-in zoom-in-95 fade-in duration-200 absolute -top-1 right-0.5 bg-rose-500 text-white font-semibold text-[9.5px] min-w-[17px] h-[17px] px-1 rounded-full flex items-center justify-center ring-2 ring-white tabular-nums"
+                  >
+                    {badge > 99 ? '99+' : badge}
+                  </span>
+                )}
               </span>
-            )}
-          </div>
-          <span className="text-[10.5px] mt-0.5 tracking-tight font-medium">ของที่ต้องซื้อ</span>
-        </button>
-
-        {/* Tab 2: ที่ต้องส่ง */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('delivery')}
-          className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all ${
-            activeTab === 'delivery'
-              ? 'bg-emerald-50 text-emerald-800 font-bold shadow-xs border border-emerald-100'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          <div className="relative">
-            <Truck className={`w-5 h-5 ${activeTab === 'delivery' ? 'text-emerald-700' : 'text-slate-400'}`} />
-            {pendingDeliveryCount > 0 && (
-              <span className="absolute -top-1 -right-2 bg-amber-100 text-amber-900 border border-amber-300 font-bold text-[9px] min-w-3.5 h-3.5 px-0.5 rounded-full flex items-center justify-center">
-                {pendingDeliveryCount}
+              <span
+                className={`text-[10.5px] mt-0.5 transition-colors duration-200 ${
+                  active ? 'text-emerald-800 font-semibold' : 'text-slate-500 font-medium'
+                }`}
+              >
+                {label}
               </span>
-            )}
-          </div>
-          <span className="text-[10.5px] mt-0.5 tracking-tight font-medium">ที่ต้องส่ง</span>
-        </button>
-
-        {/* Tab 3: สรุปกำไร */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('profit')}
-          className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all ${
-            activeTab === 'profit'
-              ? 'bg-emerald-50 text-emerald-800 font-bold shadow-xs border border-emerald-100'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          <TrendingUp className={`w-5 h-5 ${activeTab === 'profit' ? 'text-emerald-700' : 'text-slate-400'}`} />
-          <span className="text-[10.5px] mt-0.5 tracking-tight font-medium">สรุปกำไร</span>
-        </button>
-
-        {/* Tab 4: จัดการ/ชีต */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('admin')}
-          className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-2xl transition-all ${
-            activeTab === 'admin'
-              ? 'bg-emerald-50 text-emerald-800 font-bold shadow-xs border border-emerald-100'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          <Package className={`w-5 h-5 ${activeTab === 'admin' ? 'text-emerald-700' : 'text-slate-400'}`} />
-          <span className="text-[10.5px] mt-0.5 tracking-tight font-medium">จัดการ/ชีต</span>
-        </button>
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </nav>
   );
 }

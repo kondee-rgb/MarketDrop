@@ -32,6 +32,7 @@ export interface Order {
   deliveredAt: string | null; // วันเวลาที่ส่งเสร็จ เช่น "2026-11-14 20:30"
   notes: string; // หมายเหตุ เช่น "วางไว้โต๊ะหน้าบ้าน", "แขวนรั้ว"
   slipImage?: string | null; // รูปภาพสลิปหรือรูปถ่ายออเดอร์
+  slipRef?: string; // เลขอ้างอิงสลิปโอนที่ตรวจแล้ว (กันสลิปซ้ำ)
   partialReason?: string; // หมายเหตุกรณีจ่ายไม่ครบ / ค้างจ่าย
   syncedToSheets?: boolean; // สถานะการซิงค์ลง Google Sheet
   createdAt: string;

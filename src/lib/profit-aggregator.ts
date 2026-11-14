@@ -181,3 +181,43 @@ export function calculateDailyProfit(
     itemsBreakdown
   };
 }
+
+/* ---------------- Collection stats (สถานะการเก็บเงิน) ---------------- */
+
+export interface CollectionStats {
+  billed: number; // ยอดบิลรวม (ไม่รวมยกเลิก)
+  collected: number; // เงินที่ได้รับแล้ว
+  outstanding: number; // ยังค้างเก็บ
+  avgOrderValue: number; // ยอดเฉลี่ยต่อบิล
+  byMethod: { TRANSFER: number; CASH: number; QR_SCAN: number; PARTIAL: number };
+}
+
+export function calculateCollectionStats(orders: Order[]): CollectionStats {
+  const active = orders.filter(o => o.deliveryStatus !== 'CANCELLED');
+  const byMethod = { TRANSFER: 0, CASH: 0, QR_SCAN: 0, PARTIAL: 0 };
+
+  for (const o of active) {
+    if (o.deliveryStatus === 'DELIVERED') {
+      const amt = o.collectedAmount || 0;
+      if (o.paymentMethod === 'TRANSFER' || o.paymentMethod === 'CASH' || o.paymentMethod === 'QR_SCAN') {
+        byMethod[o.paymentMethod] += amt;
+      } else {
+        byMethod.PARTIAL += amt;
+      }
+    } else if (o.paymentStatus === 'PAID') {
+      // โอนล่วงหน้าแล้ว แต่ยังไม่ได้ส่ง
+      byMethod.TRANSFER += o.totalAmount || 0;
+    }
+  }
+
+  const billed = active.reduce((s, o) => s + (o.totalAmount || 0), 0);
+  const collected = byMethod.TRANSFER + byMethod.CASH + byMethod.QR_SCAN + byMethod.PARTIAL;
+
+  return {
+    billed,
+    collected,
+    outstanding: Math.max(0, billed - collected),
+    avgOrderValue: active.length ? Math.round(billed / active.length) : 0,
+    byMethod
+  };
+}

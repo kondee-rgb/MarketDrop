@@ -35,9 +35,9 @@ export function OrderCardAdmin({
           : 'border-slate-200/90 hover:border-emerald-400'
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         {/* Left: Stop Number & Reorder Controls */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="flex flex-col items-center">
             <span
               className={`w-9 h-9 rounded-2xl flex items-center justify-center font-bold text-sm tracking-tight shadow-xs ${
