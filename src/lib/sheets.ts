@@ -1,4 +1,7 @@
 import { Order } from '@/types/order';
+import { FuelConfig, calculateFuelExpense, getFuelConfig } from './fuel-calc';
+import { lookupPriceBook } from './price-book';
+import { calculateDailyProfit } from './profit-aggregator';
 
 export const SHEETS_COLUMNS = [
   'A: Timestamp',
@@ -14,8 +17,30 @@ export const SHEETS_COLUMNS = [
   'K: ช่องทางชำระ (Payment Method)',
   'L: สถานะการจัดส่ง (Delivery Status)',
   'M: เวลาที่ส่งเสร็จ (Delivered At)',
-  'N: หมายเหตุ (Notes)'
+  'N: หมายเหตุ (Notes)',
+  'O: ต้นทุนสินค้า (Produce Cost)',
+  'P: กำไรขั้นต้น (Gross Profit)',
+  'Q: เฉลี่ยค่าน้ำมัน (Fuel Cost Share)',
+  'R: กำไรสุทธิ (Net Profit)'
 ];
+
+/**
+ * คำนวณต้นทุนสินค้าของออเดอร์นั้นๆ โดยอิงจาก item.costPrice หรือดึงจาก Price Book
+ */
+export function calculateOrderCost(order: Order): number {
+  if (!order.items || order.items.length === 0) return 0;
+  return order.items.reduce((sum, item) => {
+    const qty = parseFloat(String(item.quantity)) || 1;
+    let cost = typeof item.costPrice === 'number' && item.costPrice > 0 ? item.costPrice : 0;
+    if (cost === 0) {
+      const bookEntry = lookupPriceBook(item.name);
+      if (bookEntry && bookEntry.costPrice > 0) {
+        cost = bookEntry.costPrice;
+      }
+    }
+    return sum + (qty * cost);
+  }, 0);
+}
 
 /**
  * แปลงรายการสินค้าให้เป็นข้อความอ่านง่าย 1 ช่องใน Google Sheets
@@ -70,11 +95,17 @@ export function formatDeliveryStatusThai(status: Order['deliveryStatus']): strin
 }
 
 /**
- * แปลง Order 1 รายการ ให้เป็น Array ของค่าใน 1 แถวของ Google Sheets (คอลัมน์ A ถึง N)
+ * แปลง Order 1 รายการ ให้เป็น Array ของค่าใน 1 แถวของ Google Sheets (คอลัมน์ A ถึง R รวมกำไร-ขาดทุน)
  */
-export function orderToSheetRow(order: Order): (string | number)[] {
+export function orderToSheetRow(order: Order, fuelCostPerOrder: number = 0): (string | number)[] {
   const now = new Date();
   const timestampStr = order.updatedAt || now.toISOString();
+
+  // คำนวณกำไร-ต้นทุน
+  const produceCost = Math.round(calculateOrderCost(order) * 100) / 100;
+  const grossProfit = Math.round(((order.totalAmount || 0) - produceCost) * 100) / 100;
+  const fuelShare = Math.round(fuelCostPerOrder * 100) / 100;
+  const netProfit = Math.round((grossProfit - fuelShare) * 100) / 100;
 
   return [
     timestampStr,                                   // A: Timestamp
@@ -90,7 +121,11 @@ export function orderToSheetRow(order: Order): (string | number)[] {
     formatPaymentMethodThai(order.paymentMethod),   // K: ช่องทางชำระ
     formatDeliveryStatusThai(order.deliveryStatus), // L: สถานะการจัดส่ง
     order.deliveredAt || '-',                       // M: เวลาที่ส่งเสร็จ
-    order.notes ? (order.partialReason ? `${order.notes} [ค้างชำระ: ${order.partialReason}]` : order.notes) : (order.partialReason || '-') // N: หมายเหตุ
+    order.notes ? (order.partialReason ? `${order.notes} [ค้างชำระ: ${order.partialReason}]` : order.notes) : (order.partialReason || '-'), // N: หมายเหตุ
+    produceCost,                                    // O: ต้นทุนสินค้า
+    grossProfit,                                    // P: กำไรขั้นต้น
+    fuelShare,                                      // Q: เฉลี่ยค่าน้ำมัน
+    netProfit                                       // R: กำไรสุทธิ
   ];
 }
 
@@ -99,9 +134,15 @@ export function orderToSheetRow(order: Order): (string | number)[] {
  */
 export async function syncToGoogleSheets(
   orders: Order[],
-  webhookUrl?: string
+  webhookUrl?: string,
+  fuelConfig?: FuelConfig
 ): Promise<{ success: boolean; message: string; timestamp: string }> {
   const timestamp = new Date().toISOString();
+  const activeCfg = fuelConfig || getFuelConfig();
+  const fuelCalc = calculateFuelExpense(activeCfg);
+  const activeOrdersCount = orders.filter(o => o.deliveryStatus !== 'CANCELLED').length;
+  const fuelCostPerOrder = activeOrdersCount > 0 ? fuelCalc.fuelCost / activeOrdersCount : 0;
+  const dailyProfit = calculateDailyProfit(orders, activeCfg);
 
   try {
     const payload = {
@@ -109,24 +150,25 @@ export async function syncToGoogleSheets(
       timestamp,
       count: orders.length,
       columns: SHEETS_COLUMNS,
-      rows: orders.map(orderToSheetRow),
-      orders: orders
+      rows: orders.map(o => orderToSheetRow(o, fuelCostPerOrder)),
+      orders,
+      profitSummary: dailyProfit
     };
 
     // 1. ถ้ามี Webhook URL ส่งไปยัง Apps Script โดยตรง หรือผ่าน API route
     if (webhookUrl && webhookUrl.trim().startsWith('http')) {
-      const response = await fetch(webhookUrl.trim(), {
+      await fetch(webhookUrl.trim(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload),
-        mode: 'no-cors' // Google Apps Script Webhook redirects often require no-cors or JSONP
+        mode: 'no-cors'
       });
 
       return {
         success: true,
-        message: 'ส่งข้อมูลไปยัง Google Apps Script สำเร็จ',
+        message: 'ส่งข้อมูลและสรุปกำไรไปยัง Google Sheets สำเร็จ',
         timestamp
       };
     }
@@ -139,7 +181,8 @@ export async function syncToGoogleSheets(
       },
       body: JSON.stringify({
         orders,
-        webhookUrl
+        webhookUrl,
+        profitSummary: dailyProfit
       })
     });
 
@@ -150,7 +193,7 @@ export async function syncToGoogleSheets(
     const data = await localRes.json();
     return {
       success: true,
-      message: data.message || 'ซิงค์ข้อมูลเรียบร้อย',
+      message: data.message || 'ซิงค์ข้อมูลและผลกำไรเรียบร้อย',
       timestamp
     };
   } catch (err: unknown) {
@@ -164,9 +207,9 @@ export async function syncToGoogleSheets(
 }
 
 /**
- * สร้างไฟล์ CSV พร้อง UTF-8 BOM สำหรับดาวน์โหลดไปเปิดใน Excel / Google Sheets
+ * สร้างไฟล์ CSV พร้อม UTF-8 BOM สำหรับดาวน์โหลดไปเปิดใน Excel / Google Sheets
  */
-export function exportOrdersToCsv(orders: Order[]): string {
+export function exportOrdersToCsv(orders: Order[], fuelConfig?: FuelConfig): string {
   const headers = [
     'Timestamp',
     'Stop No.',
@@ -181,10 +224,19 @@ export function exportOrdersToCsv(orders: Order[]): string {
     'Payment Method',
     'Delivery Status',
     'Delivered At',
-    'Notes'
+    'Notes',
+    'Produce Cost',
+    'Gross Profit',
+    'Fuel Share',
+    'Net Profit'
   ];
 
-  const rows = orders.map(orderToSheetRow);
+  const activeCfg = fuelConfig || getFuelConfig();
+  const fuelCalc = calculateFuelExpense(activeCfg);
+  const activeOrdersCount = orders.filter(o => o.deliveryStatus !== 'CANCELLED').length;
+  const fuelCostPerOrder = activeOrdersCount > 0 ? fuelCalc.fuelCost / activeOrdersCount : 0;
+
+  const rows = orders.map(o => orderToSheetRow(o, fuelCostPerOrder));
 
   const escapeCsv = (val: string | number) => {
     const str = String(val ?? '').replace(/"/g, '""');
@@ -204,16 +256,7 @@ export function exportOrdersToCsv(orders: Order[]): string {
  * ตัวอย่างโค้ด Google Apps Script สำเร็จรูป สำหรับให้ผู้ใช้ก๊อปปี้ไปวางใน Google Sheets
  */
 export const SAMPLE_APPS_SCRIPT_CODE = `/**
- * Google Apps Script สำหรับรับข้อมูลจาก MarketDrop Webhook
- * วิธีใช้งาน:
- * 1. เปิด Google Sheets เปล่าขึ้นมา
- * 2. ไปที่เมนู "ส่วนขยาย (Extensions)" > "Apps Script"
- * 3. วางโค้ดนี้ลงไป แล้วกดบันทึก
- * 4. กดปุ่ม "ทำให้ใช้งานได้ (Deploy)" > "การทำให้ใช้งานได้ใหม่ (New deployment)"
- * 5. เลือกประเภท "เว็บแอปพลิเคชัน (Web app)"
- *    - Execute as: Me (ฉัน)
- *    - Who has access: Anyone (ทุกคน)
- * 6. ก๊อปปี้ Web app URL มาใส่ในช่องตั้งค่า Google Sheets ของ MarketDrop
+ * Google Apps Script สำหรับรับข้อมูลจาก MarketDrop Webhook พร้อมคอลัมน์วิเคราะห์กำไรสุทธิ
  */
 
 function doPost(e) {
@@ -221,15 +264,16 @@ function doPost(e) {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     var data = JSON.parse(e.postData.contents);
     
-    // ตั้งชื่อหัวตารางถ้าชีตยังว่างอยู่
+    // ตั้งชื่อหัวตารางถ้าชีตยังว่างอยู่ (คอลัมน์ A ถึง R)
     if (sheet.getLastRow() === 0) {
       sheet.appendRow([
         "Timestamp", "Stop No.", "House No.", "Soi/Zone",
         "Customer Name", "Phone", "Items", "Total Amount",
         "Payment Status", "Collected Amount", "Payment Method",
-        "Delivery Status", "Delivered At", "Notes"
+        "Delivery Status", "Delivered At", "Notes",
+        "Produce Cost", "Gross Profit", "Fuel Share", "Net Profit"
       ]);
-      sheet.getRange(1, 1, 1, 14).setFontWeight("bold").setBackground("#d1fae5");
+      sheet.getRange(1, 1, 1, 18).setFontWeight("bold").setBackground("#d1fae5");
     }
 
     if (data.action === "SYNC_ALL" && data.rows && data.rows.length > 0) {
@@ -246,7 +290,7 @@ function doPost(e) {
     
     return ContentService.createTextOutput(JSON.stringify({
       status: "success",
-      message: "Data synced successfully",
+      message: "Data synced successfully with P&L analysis",
       timestamp: new Date().toISOString()
     })).setMimeType(ContentService.MimeType.JSON);
     

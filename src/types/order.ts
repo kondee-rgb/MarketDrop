@@ -8,7 +8,9 @@ export interface OrderItem {
   quantity: string | number;
   unit: string;
   checked?: boolean; // สำหรับ Driver checklist
-  price?: number;
+  price?: number; // ราคาขายต่อหน่วย หรือราคารวม
+  costPrice?: number; // ราคาทุนที่ซื้อจากตลาด (บาท)
+  shopName?: string; // ชื่อร้าน/แผงค้าในตลาดสด เช่น เขียงหมูเจ๊พร
   category?: 'meat' | 'veg' | 'egg_dairy' | 'spice' | 'dry' | 'other';
 }
 
@@ -89,4 +91,4 @@ export interface GoogleSheetsConfig {
 export type SortMode = 'NATURAL_HOUSE' | 'SOI_THEN_HOUSE' | 'MANUAL';
 export type SortDirection = 'ASC' | 'DESC';
 
-export type MainTabType = 'shopping' | 'delivery' | 'admin';
+export type MainTabType = 'shopping' | 'delivery' | 'profit' | 'admin';

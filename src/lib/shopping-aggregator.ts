@@ -170,6 +170,8 @@ export interface HouseAllocationParams {
   quantity: string | number; // จำนวน เช่น 1, 2, "0.5"
   unit?: string; // หน่วย เช่น "กก.", "กำ"
   price?: number; // ราคา (ถ้ามี)
+  costPrice?: number; // ราคาทุนที่ซื้อจากตลาด (บาท)
+  shopName?: string; // ร้านค้า/แผงค้าในตลาดสด
 }
 
 /**
@@ -220,7 +222,9 @@ export function allocateItemToHouse(
       items[existingItemIndex] = {
         ...existing,
         quantity: prevQty + addQty,
-        price: (existing.price || 0) + (allocation.price || 0)
+        price: (existing.price || 0) + (allocation.price || 0),
+        costPrice: allocation.costPrice ?? existing.costPrice,
+        shopName: allocation.shopName ?? existing.shopName
       };
     } else {
       const newItem: OrderItem = {
@@ -229,6 +233,8 @@ export function allocateItemToHouse(
         quantity: allocation.quantity,
         unit: cleanUnit,
         price: allocation.price,
+        costPrice: allocation.costPrice,
+        shopName: allocation.shopName,
         checked: false,
         category: detectCategory(cleanItemName)
       };
@@ -266,6 +272,8 @@ export function allocateItemToHouse(
         quantity: allocation.quantity,
         unit: cleanUnit,
         price: allocation.price,
+        costPrice: allocation.costPrice,
+        shopName: allocation.shopName,
         checked: false,
         category: detectCategory(cleanItemName)
       }

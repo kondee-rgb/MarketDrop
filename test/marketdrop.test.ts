@@ -182,8 +182,8 @@ describe('3. Google Sheets Integration & Column Mapping Tests', () => {
     };
 
     const row = orderToSheetRow(mockOrder);
-    expect(row.length).toBe(14); // 14 columns A through N
-    expect(SHEETS_COLUMNS.length).toBe(14);
+    expect(row.length).toBe(18); // 18 columns A through R (including Cost, Fuel, Gross & Net Profit)
+    expect(SHEETS_COLUMNS.length).toBe(18);
     expect(row[1]).toBe(1); // Stop No.
     expect(row[2]).toBe('45/12'); // House No.
     expect(row[3]).toBe('ซอย 3'); // Soi
@@ -197,6 +197,10 @@ describe('3. Google Sheets Integration & Column Mapping Tests', () => {
     expect(row[11]).toBe('ส่งสำเร็จ'); // Delivery Status
     expect(row[12]).toBe('14/11/2026 20:30'); // Delivered At
     expect(row[13]).toBe('วางไว้หน้าบ้าน'); // Notes
+    expect(typeof row[14]).toBe('number'); // O: Cost
+    expect(typeof row[15]).toBe('number'); // P: Gross Profit
+    expect(typeof row[16]).toBe('number'); // Q: Fuel Share
+    expect(typeof row[17]).toBe('number'); // R: Net Profit
   });
 
   it('should format status values in Thai accurately', () => {
@@ -657,5 +661,194 @@ describe('10. Shopping Allocation & Linking to Delivery Stops Tests', () => {
     // Remove allocation
     orders = removeAllocationFromHouse(orders, 'แตงกวา', 'กก.', '81/55');
     expect(orders.length).toBe(0);
+  });
+});
+
+describe('11. Price Memory & Catalog Engine Tests', () => {
+  it('should save, lookup, update cost price, search and delete price book entries', async () => {
+    const {
+      savePriceBookEntry,
+      lookupPriceBook,
+      updateCostPriceForProduct,
+      searchPriceBook,
+      deletePriceBookEntry,
+      getPriceBook
+    } = await import('../src/lib/price-book');
+
+    // 1. Save entry
+    const saved = savePriceBookEntry({
+      itemName: 'หมูบดอนามัย',
+      shopName: 'เขียงหมูเจ๊พร',
+      costPrice: 120,
+      sellingPrice: 140,
+      unit: 'กก.',
+      notes: 'สั่งล่วงหน้า 1 วัน'
+    });
+
+    expect(saved.id).toBeDefined();
+    expect(saved.itemName).toBe('หมูบดอนามัย');
+    expect(saved.costPrice).toBe(120);
+    expect(saved.shopName).toBe('เขียงหมูเจ๊พร');
+
+    // 2. Lookup exact and partial match
+    const exact = lookupPriceBook('หมูบดอนามัย');
+    expect(exact).toBeDefined();
+    expect(exact?.costPrice).toBe(120);
+
+    const partial = lookupPriceBook('หมูบด');
+    expect(partial).toBeDefined();
+    expect(partial?.costPrice).toBe(120);
+
+    // 3. Update cost price
+    updateCostPriceForProduct('หมูบดอนามัย', 125, 'เขียงหมูเจ๊พร สาขา 2');
+    const updated = lookupPriceBook('หมูบดอนามัย');
+    expect(updated?.costPrice).toBe(125);
+    expect(updated?.shopName).toBe('เขียงหมูเจ๊พร สาขา 2');
+
+    // 4. Search
+    const searchResults = searchPriceBook('เจ๊พร');
+    expect(searchResults.length).toBeGreaterThanOrEqual(1);
+
+    // 5. Delete entry
+    deletePriceBookEntry(saved.id);
+    const afterDelete = lookupPriceBook('หมูบดอนามัย');
+    expect(afterDelete).toBeNull();
+  });
+});
+
+describe('12. Fuel & Transport Expense Calculator Tests', () => {
+  it('should calculate fuel consumption and total expenses accurately', async () => {
+    const { calculateFuelExpense, saveFuelConfig, getFuelConfig } = await import('../src/lib/fuel-calc');
+
+    // Distance: 30 km, 15 km/L, 38.5 ฿/L, Other: 50 ฿
+    const testConfig = {
+      distanceKm: 30,
+      consumptionKmPerLiter: 15,
+      fuelPricePerLiter: 38.5,
+      otherExpenses: 50,
+      otherExpenseNotes: 'ค่าทางด่วน'
+    };
+
+    const result = calculateFuelExpense(testConfig);
+    // 30 / 15 = 2.00 liters
+    expect(result.litersUsed).toBe(2);
+    // 2 * 38.5 = 77.00 baht
+    expect(result.fuelCost).toBe(77);
+    // 77 + 50 = 127.00 baht
+    expect(result.totalExpense).toBe(127);
+
+    // Test saving and loading config
+    saveFuelConfig(testConfig);
+    const loaded = getFuelConfig();
+    expect(loaded.distanceKm).toBe(30);
+    expect(loaded.consumptionKmPerLiter).toBe(15);
+    expect(loaded.otherExpenses).toBe(50);
+  });
+});
+
+describe('13. Profit & Loss (P&L) Aggregation Engine Tests', () => {
+  it('should compute comprehensive daily profit with item breakdown, margins, and fuel expense', async () => {
+    const { calculateDailyProfit } = await import('../src/lib/profit-aggregator');
+    const { savePriceBookEntry } = await import('../src/lib/price-book');
+
+    // Pre-populate price book for auto-cost lookup
+    savePriceBookEntry({
+      itemName: 'ผักบุ้ง',
+      shopName: 'แผงผักป้าแตน',
+      costPrice: 15, // Cost 15 baht per bunch
+      unit: 'กำ'
+    });
+
+    const mockOrders: Order[] = [
+      {
+        id: 'ord-profit-1',
+        stopNumber: 1,
+        houseNumber: '51/104',
+        soi: 'ตึก A',
+        customerName: 'คุณนก',
+        phone: '0812345678',
+        items: [
+          // Item with explicit costPrice
+          { id: 'i1', name: 'หมูบด', quantity: 2, unit: 'กก.', price: 300, costPrice: 120, shopName: 'เขียงหมูเจ๊พร' },
+          // Item without explicit costPrice (should fallback to price book: 15 baht)
+          { id: 'i2', name: 'ผักบุ้ง', quantity: 3, unit: 'กำ', price: 60 }
+        ],
+        totalAmount: 360,
+        paymentStatus: 'PAID',
+        collectedAmount: 360,
+        paymentMethod: 'TRANSFER',
+        deliveryStatus: 'DELIVERED',
+        deliveredAt: '2026-11-14 20:00',
+        notes: '',
+        createdAt: '',
+        updatedAt: ''
+      },
+      {
+        id: 'ord-profit-2',
+        stopNumber: 2,
+        houseNumber: '800/12',
+        soi: 'ซอย 1/1',
+        customerName: 'พี่หนุ่ม',
+        phone: '',
+        items: [
+          { id: 'i3', name: 'หมูบด', quantity: 1, unit: 'กก.', price: 150, costPrice: 120, shopName: 'เขียงหมูเจ๊พร' }
+        ],
+        totalAmount: 150,
+        paymentStatus: 'COD',
+        collectedAmount: 0,
+        paymentMethod: null,
+        deliveryStatus: 'PENDING',
+        deliveredAt: null,
+        notes: '',
+        createdAt: '',
+        updatedAt: ''
+      }
+    ];
+
+    const fuelConfig = {
+      distanceKm: 28,
+      consumptionKmPerLiter: 14,
+      fuelPricePerLiter: 38.5,
+      otherExpenses: 20
+    };
+    // Fuel expense: 28 / 14 = 2 liters * 38.5 = 77 baht + 20 other = 97 baht total
+
+    const profitSummary = calculateDailyProfit(mockOrders, fuelConfig);
+
+    // Revenue: 360 + 150 = 510 baht
+    expect(profitSummary.totalRevenue).toBe(510);
+
+    // Produce Cost:
+    // หมูบด: (2 + 1) * 120 = 360 baht
+    // ผักบุ้ง: 3 * 15 = 45 baht
+    // Total produce cost: 360 + 45 = 405 baht
+    expect(profitSummary.totalProduceCost).toBe(405);
+
+    // Gross produce profit: 510 - 405 = 105 baht
+    expect(profitSummary.grossProduceProfit).toBe(105);
+
+    // Fuel cost: 77 baht, Other expenses: 20 baht
+    expect(profitSummary.totalFuelCost).toBe(77);
+    expect(profitSummary.totalOtherExpense).toBe(20);
+    expect(profitSummary.totalExpenses).toBe(502); // 405 + 77 + 20 = 502
+
+    // Net profit: 510 - 502 = 8 baht
+    expect(profitSummary.netProfit).toBe(8);
+    expect(profitSummary.profitMarginPercent).toBeGreaterThan(0);
+
+    // Check item breakdown
+    expect(profitSummary.itemsBreakdown.length).toBe(2);
+    const pork = profitSummary.itemsBreakdown.find(i => i.name === 'หมูบด');
+    expect(pork).toBeDefined();
+    expect(pork?.quantity).toBe(3);
+    expect(pork?.costPrice).toBe(120);
+    expect(pork?.totalCost).toBe(360);
+    expect(pork?.totalRevenue).toBe(450);
+    expect(pork?.profit).toBe(90);
+
+    const morningGlory = profitSummary.itemsBreakdown.find(i => i.name === 'ผักบุ้ง');
+    expect(morningGlory).toBeDefined();
+    expect(morningGlory?.isCostEstimated).toBe(true);
+    expect(morningGlory?.costPrice).toBe(15);
   });
 });

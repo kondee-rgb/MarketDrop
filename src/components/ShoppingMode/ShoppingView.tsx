@@ -21,7 +21,8 @@ import {
   Check,
   ChevronRight,
   Phone,
-  Tag
+  Tag,
+  Store
 } from 'lucide-react';
 import { Order, ShoppingItem } from '@/types/order';
 import { CATEGORY_LABELS, HouseAllocationParams } from '@/lib/shopping-aggregator';
@@ -32,6 +33,7 @@ import {
   saveFrequentContact,
   recordContactUsage
 } from '@/lib/contacts';
+import { lookupPriceBook, updateCostAndSellingPrice } from '@/lib/price-book';
 
 interface ShoppingViewProps {
   items: ShoppingItem[];
@@ -86,6 +88,8 @@ export function ShoppingView({
   const [allocQty, setAllocQty] = useState('1');
   const [allocUnit, setAllocUnit] = useState('กก.');
   const [allocPrice, setAllocPrice] = useState('');
+  const [itemCostPrice, setItemCostPrice] = useState('');
+  const [itemShopName, setItemShopName] = useState('');
 
   // For existing order selection
   const [selectedOrderId, setSelectedOrderId] = useState<string>('');
@@ -158,8 +162,19 @@ export function ShoppingView({
     setAllocCustomerName('');
     setAllocSoi('');
     setAllocPhone('');
-    setAllocPrice('');
     setAllocSaveFrequent(false);
+
+    // Look up price memory book (ต้นทุน & ร้านค้าที่จำไว้)
+    const mem = lookupPriceBook(item.name);
+    if (mem) {
+      setItemCostPrice(mem.costPrice !== undefined ? String(mem.costPrice) : '');
+      setItemShopName(mem.shopName || '');
+      setAllocPrice(mem.sellingPrice !== undefined ? String(mem.sellingPrice) : '');
+    } else {
+      setItemCostPrice('');
+      setItemShopName('');
+      setAllocPrice('');
+    }
   };
 
   // When location changes in modal
@@ -225,6 +240,19 @@ export function ShoppingView({
 
     let allocationData: HouseAllocationParams | null = null;
     const priceNum = allocPrice ? parseFloat(allocPrice) : undefined;
+    const costNum = itemCostPrice ? parseFloat(itemCostPrice) : undefined;
+    const shopStr = itemShopName.trim() || undefined;
+
+    // Save to price memory book automatically
+    if (allocatingItem && (costNum !== undefined || priceNum !== undefined || shopStr)) {
+      updateCostAndSellingPrice(
+        allocatingItem.name,
+        costNum,
+        priceNum,
+        allocUnit || allocatingItem.unit,
+        shopStr
+      );
+    }
 
     if (allocTargetMode === 'existing' && selectedOrderId) {
       const targetOrder = existingOrders.find(o => o.id === selectedOrderId);
@@ -238,7 +266,9 @@ export function ShoppingView({
           building: targetOrder.building,
           quantity: allocQty || '1',
           unit: allocUnit || allocatingItem.unit,
-          price: priceNum
+          price: priceNum,
+          costPrice: costNum,
+          shopName: shopStr
         };
       }
     } else if (allocTargetMode === 'frequent' && selectedContactId) {
@@ -254,7 +284,9 @@ export function ShoppingView({
           soi: c.soi,
           quantity: allocQty || '1',
           unit: allocUnit || allocatingItem.unit,
-          price: priceNum
+          price: priceNum,
+          costPrice: costNum,
+          shopName: shopStr
         };
       }
     } else {
@@ -283,7 +315,9 @@ export function ShoppingView({
         soi: allocSoi.trim() || undefined,
         quantity: allocQty || '1',
         unit: allocUnit || allocatingItem.unit,
-        price: priceNum
+        price: priceNum,
+        costPrice: costNum,
+        shopName: shopStr
       };
     }
 
@@ -1053,6 +1087,44 @@ export function ShoppingView({
                   </div>
                 </div>
               )}
+
+              {/* Shop Name & Cost Price (Price Memory) */}
+              <div className="p-3 bg-amber-50/80 rounded-2xl border border-amber-200/90 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                  <Store className="w-3.5 h-3.5 text-amber-700" />
+                  <span>ร้านค้า & ต้นทุนที่ซื้อ (จดจำราคาอัตโนมัติ)</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
+                      ร้านค้าที่ซื้อ:
+                    </label>
+                    <input
+                      type="text"
+                      value={itemShopName}
+                      onChange={e => setItemShopName(e.target.value)}
+                      placeholder="เช่น ป้าณีผักสด, เขียงหมูนคร"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-amber-300 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-0.5">
+                      ต้นทุนที่ซื้อ (฿):
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={itemCostPrice}
+                      onChange={e => setItemCostPrice(e.target.value)}
+                      placeholder="เช่น 25"
+                      className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-amber-300 bg-white font-bold text-amber-900"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-amber-700 leading-tight">
+                  💡 บันทึกครั้งเดียว ระบบจะจำต้นทุนและร้านค้านี้ไว้คำนวณกำไร-ขาดทุนให้อัตโนมัติทุกครั้ง
+                </p>
+              </div>
 
               {/* Quantity to allocate */}
               <div className="grid grid-cols-3 gap-2 pt-1">

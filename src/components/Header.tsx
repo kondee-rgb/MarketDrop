@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Truck, ShoppingCart, Package, FileSpreadsheet, RotateCcw } from 'lucide-react';
+import { Truck, ShoppingCart, Package, FileSpreadsheet, RotateCcw, TrendingUp } from 'lucide-react';
 import { GoogleSheetsConfig, MainTabType } from '@/types/order';
 
 interface HeaderProps {
@@ -106,7 +106,20 @@ export function Header({
               )}
             </button>
 
-            {/* Tab 3: จัดการออเดอร์ */}
+            {/* Tab 3: สรุปกำไร */}
+            <button
+              onClick={() => setActiveTab('profit')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                activeTab === 'profit'
+                  ? 'bg-white text-emerald-800 shadow-xs font-bold border border-emerald-100'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4 text-emerald-600" />
+              <span>💰 สรุปกำไร</span>
+            </button>
+
+            {/* Tab 4: จัดการออเดอร์ */}
             <button
               onClick={() => setActiveTab('admin')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
@@ -116,7 +129,7 @@ export function Header({
               }`}
             >
               <Package className="w-4 h-4 text-slate-500" />
-              <span>จัดการออเดอร์</span>
+              <span>จัดการ/ชีต</span>
             </button>
           </div>
 

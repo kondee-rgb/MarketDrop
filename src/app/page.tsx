@@ -6,6 +6,7 @@ import { RouteSummary } from '@/components/RouteSummary';
 import { OrderManagerView } from '@/components/OrderManager/OrderManagerView';
 import { DriverView } from '@/components/DriverMode/DriverView';
 import { ShoppingView } from '@/components/ShoppingMode/ShoppingView';
+import { ProfitView } from '@/components/ProfitMode/ProfitView';
 import { PhotoToOrderModal } from '@/components/PhotoUpload/PhotoToOrderModal';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { SheetsSyncModal } from '@/components/GoogleSheets/SheetsSyncModal';
@@ -265,6 +266,20 @@ export default function MarketDropApp() {
     });
   };
 
+  // Update cost price and shop for an item across all orders
+  const handleUpdateItemCost = (itemName: string, costPrice: number, shopName?: string) => {
+    setOrders(prev =>
+      prev.map(order => ({
+        ...order,
+        items: order.items.map(it =>
+          it.name.trim().toLowerCase() === itemName.trim().toLowerCase()
+            ? { ...it, costPrice, shopName: shopName || it.shopName }
+            : it
+        )
+      }))
+    );
+  };
+
   // Add new order from Photo Upload Modal
   const handleAddOrderFromPhoto = (newOrder: Order) => {
     setOrders(prev => {
@@ -415,7 +430,18 @@ export default function MarketDropApp() {
           />
         )}
 
-        {/* TAB 3: จัดการออเดอร์ (Admin Order Manager & Sheets Sync) */}
+        {/* TAB 3: สรุปกำไร-ขาดทุน (Profit & Loss Dashboard) */}
+        {activeTab === 'profit' && (
+          <ProfitView
+            orders={orders}
+            manualShoppingItems={manualShoppingItems}
+            sheetsConfig={sheetsConfig}
+            onOpenSheetsModal={() => setIsSheetsModalOpen(true)}
+            onUpdateItemCost={handleUpdateItemCost}
+          />
+        )}
+
+        {/* TAB 4: จัดการออเดอร์ (Admin Order Manager & Sheets Sync) */}
         {activeTab === 'admin' && (
           <OrderManagerView
             orders={orders}
