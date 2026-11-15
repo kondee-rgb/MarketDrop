@@ -43,7 +43,7 @@ export function applyOrderChanges(list: Order[], ch: OrderChanges): Order[] {
 
 export interface SyncResult {
   ok: boolean;
-  code?: 'not_configured' | 'bad_pin' | 'no_pin' | 'offline';
+  code?: 'not_configured' | 'bad_pin' | 'offline';
   pulled: number;
   pushed: number;
   at?: string;
@@ -54,6 +54,28 @@ export function hashText(s: string): string {
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   return `${s.length}:${h >>> 0}`;
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+function mergeValue(primary: unknown, secondary: unknown): unknown {
+  if (Array.isArray(primary) && Array.isArray(secondary)) {
+    const keyOf = (x: unknown) => (isObj(x) && 'id' in x ? `id:${String(x.id)}` : `v:${JSON.stringify(x)}`);
+    const have = new Set(primary.map(keyOf));
+    return [...primary, ...secondary.filter(x => !have.has(keyOf(x)))];
+  }
+  if (isObj(primary) && isObj(secondary)) return { ...secondary, ...primary };
+  return primary;
+}
+
+/** Join two saved JSON values: lists by id (primary wins on the same id), objects key by key (primary wins). */
+export function mergeJson(primaryText: string, secondaryText: string): string {
+  try {
+    const merged = JSON.stringify(mergeValue(JSON.parse(primaryText), JSON.parse(secondaryText)));
+    return merged === JSON.stringify(JSON.parse(primaryText)) ? primaryText : merged;
+  } catch {
+    return primaryText;
+  }
 }
 
 /** Order fingerprint without stopNumber: each phone numbers its stops in its own sort order. */
@@ -100,8 +122,8 @@ export async function syncOnce(
   const fetcher = deps.fetcher ?? fetch;
   const applyOrders =
     deps.applyOrders ?? ((ch: OrderChanges) => store.setItem(ORDERS_KEY, JSON.stringify(applyOrderChanges(readOrders(store), ch))));
-  if (!pin) return { ok: false, code: 'no_pin', pulled: 0, pushed: 0 };
-  const headers = { 'Content-Type': 'application/json', 'x-app-pin': pin };
+  // the PIN is optional: only sent when the shop set one
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...(pin ? { 'x-app-pin': pin } : {}) };
   const state = readState(store);
   const firstSync = !state.since;
 
@@ -125,16 +147,29 @@ export async function syncOnce(
     return { ok: false, code: pulledBody?.code ?? 'offline', pulled: 0, pushed: 0 };
   }
 
-  // 1. apply the cloud's changes. A key/order this phone also changed keeps the phone's version
-  //    (it is pushed below) — except on the very first sync, where the cloud wins.
+  // 1. apply the cloud's changes. When this phone changed the same list too (or syncs for the first
+  //    time), the two are merged — lists join by id — so nobody's price book or regulars get dropped.
+  //    An order this phone also changed keeps the phone's version (pushed below), except on the first sync.
   let pulled = 0;
   for (const row of pulledBody.kv as { key: string; value: string }[]) {
     if (LOCAL_ONLY.has(row.key) || row.key === ORDERS_KEY) continue;
-    if (!firstSync && kvDirty.has(row.key)) continue;
-    kvDirty.delete(row.key);
+    // the same version we already have (re-read in the overlap window): nothing new from the cloud
+    if (state.kv[row.key] === hashText(row.value)) continue;
+    const mine = store.getItem(row.key);
+    let value = row.value;
+    if (mine !== null && mine !== row.value && (firstSync || kvDirty.has(row.key))) {
+      // first sync: the cloud's settings win, lists are joined; later conflicts: this phone wins, lists joined
+      value = firstSync ? mergeJson(row.value, mine) : mergeJson(mine, row.value);
+    }
     state.kv[row.key] = hashText(row.value);
-    if (store.getItem(row.key) !== row.value) {
-      store.setItem(row.key, row.value);
+    if (value !== row.value) {
+      kvDirty.add(row.key); // the merged version goes back up
+      localKv.set(row.key, value);
+    } else {
+      kvDirty.delete(row.key);
+    }
+    if (mine !== value) {
+      store.setItem(row.key, value);
       pulled++;
     }
   }

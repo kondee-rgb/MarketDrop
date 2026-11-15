@@ -96,7 +96,7 @@ describe('1. LINE Order Parser Tests', () => {
 
     const parsed = parseSingleOrderText(raw);
     expect(parsed.houseNumber).toBe('15/8');
-    expect(parsed.customerName).toContain('ป้าเพ็ญ');
+    expect(parsed.customerName).toBe('ป้าเพ็ญ');
     expect(parsed.phone).toBe('082-334-4556');
     expect(parsed.totalAmount).toBe(225);
     expect(parsed.paymentStatus).toBe('PAID');
@@ -1678,5 +1678,53 @@ describe('28. Cloud sync between two phones', () => {
     await run(A);
     expect(ids(A)).toEqual(['o1']);
     expect(server.orders.get('o2')!.deleted).toBe(true);
+  });
+
+  it('joins lists instead of overwriting: first sync of a second phone, and both phones editing at once', async () => {
+    const { syncOnce, mergeJson } = await import('../src/lib/cloud-sync');
+    const server = fakeServer();
+    const run = (s: ReturnType<typeof fakeStore>) => syncOnce('pin123456', { store: s, fetcher: server.fetcher });
+    const book = (s: ReturnType<typeof fakeStore>) => JSON.parse(s.getItem('marketdrop_price_book_v1')!).map((e: { id: string; cost: number }) => `${e.id}:${e.cost}`).sort();
+    const A = fakeStore({
+      marketdrop_price_book_v1: JSON.stringify([{ id: 'p1', cost: 10 }, { id: 'p2', cost: 20 }]),
+      marketdrop_fuel_config_v1: JSON.stringify({ kmPerLiter: 30, price: 40 })
+    });
+    const B = fakeStore({
+      marketdrop_price_book_v1: JSON.stringify([{ id: 'p2', cost: 99 }, { id: 'p3', cost: 30 }]),
+      marketdrop_fuel_config_v1: JSON.stringify({ kmPerLiter: 10 })
+    });
+    await run(A);
+    await run(B); // B joins: keeps p3, takes A's p2 and A's fuel settings
+    await run(A);
+    expect(book(A)).toEqual(['p1:10', 'p2:20', 'p3:30']);
+    expect(book(B)).toEqual(['p1:10', 'p2:20', 'p3:30']);
+    expect(JSON.parse(B.getItem('marketdrop_fuel_config_v1')!)).toEqual({ kmPerLiter: 30, price: 40 });
+
+    // both add an item before syncing → both items survive
+    A.setItem('marketdrop_price_book_v1', JSON.stringify([...JSON.parse(A.getItem('marketdrop_price_book_v1')!), { id: 'pa', cost: 1 }]));
+    B.setItem('marketdrop_price_book_v1', JSON.stringify([...JSON.parse(B.getItem('marketdrop_price_book_v1')!), { id: 'pb', cost: 2 }]));
+    await run(A);
+    await run(B);
+    await run(A);
+    expect(book(A)).toEqual(book(B));
+    expect(book(A)).toContain('pa:1');
+    expect(book(A)).toContain('pb:2');
+    // a second round with nothing new sends nothing
+    expect((await run(A)).pushed).toBe(0);
+    expect((await run(B)).pushed).toBe(0);
+
+    expect(mergeJson('"x"', '"y"')).toBe('"x"');
+    expect(mergeJson('not json', '[]')).toBe('not json');
+  });
+});
+
+describe('29. Paste parser regressions', () => {
+  it('reads items whose names contain น้า/พี่ inside the word, and keeps the detected location', () => {
+    const o = parseSingleOrderText('บ้าน 51/3 คุณวิภา\nหมูบด 1 กก.\nคะน้า 2 กำ\nหน้าวัว 1 ถุง\nรวม 220 บาท');
+    expect(o.customerName).toBe('คุณวิภา');
+    expect(o.items.map(i => `${i.name} ${i.quantity} ${i.unit}`)).toEqual(['หมูบด 1 กก.', 'คะน้า 2 กำ', 'หน้าวัว 1 ถุง']);
+    expect([o.locationId, o.building]).toEqual(['ivy-river', 'ตึก A']);
+    const [a, b] = parseBulkOrderText('บ้าน 51/3 คุณวิภา\nหมูบด 1 กก.\n---\nบ้าน 79/5 พี่นก\nไข่ไก่ 1 แผง');
+    expect([a.locationId, b.locationId, b.building, b.customerName]).toEqual(['ivy-river', 'the-plant', 'ทาวน์โฮม', 'พี่นก']);
   });
 });

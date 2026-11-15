@@ -6,6 +6,16 @@ import { CLOUD_PIN_KEY, OrderChanges, SYNC_EVENT, SyncResult, syncOnce } from '.
 export const SYNC_NOW_EVENT = 'marketdrop:sync-now';
 const EVERY_MS = 15000;
 
+export const CLOUD_OFF_KEY = 'md_cloud_off'; // this phone turned sync off
+
+export const isCloudOff = () => {
+  try {
+    return localStorage.getItem(CLOUD_OFF_KEY) === '1';
+  } catch {
+    return true;
+  }
+};
+
 export const getCloudPin = () => {
   try {
     return localStorage.getItem(CLOUD_PIN_KEY) || '';
@@ -15,7 +25,7 @@ export const getCloudPin = () => {
 };
 
 /**
- * Runs cloud sync while the app is open: on start, every 15 s while visible, when the app comes back
+ * Runs cloud sync (on by default) while the app is open: on start, every 15 s while visible, when the app comes back
  * to the front, and on demand (SYNC_NOW_EVENT). Each result is broadcast as SYNC_EVENT for the settings card.
  */
 export function useCloudSync(
@@ -24,14 +34,16 @@ export function useCloudSync(
   onOtherData: () => void
 ) {
   const cb = useRef({ onOrders, onOtherData });
-  cb.current = { onOrders, onOtherData };
+  useEffect(() => {
+    cb.current = { onOrders, onOtherData };
+  });
 
   useEffect(() => {
     if (!enabled) return;
     let running = false;
     const run = async () => {
+      if (isCloudOff() || running || document.visibilityState !== 'visible') return;
       const pin = getCloudPin();
-      if (!pin || running || document.visibilityState !== 'visible') return;
       running = true;
       try {
         let ordersPulled = 0;

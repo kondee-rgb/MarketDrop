@@ -73,11 +73,11 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
   }
 
   // 2. ตรวจจับชื่อลูกค้า (คำนำหน้า คุณ, พี่, ป้า, น้า, ลุง, แม่, ช่าง, น้อง)
-  const nameRegex = /(?:ชื่อ|ลูกค้า|คุณ|พี่|ป้า|น้า|ลุง|แม่|ช่าง|น้อง)\s*([ก-๙a-zA-Z]+(?:\s+[ก-๙a-zA-Z]+)?)/;
+  const nameRegex = /(?:^|[^ก-๙])(?:ชื่อ|ลูกค้า|คุณ|พี่|ป้า|น้า|ลุง|แม่|ช่าง|น้อง)\s*([ก-๙a-zA-Z]+(?:\s+[ก-๙a-zA-Z]+)?)/;
   for (const line of lines) {
     const nameMatch = line.match(nameRegex);
     if (nameMatch && !nameMatch[1].match(/^(?:บาท|โล|กก|แผง|โอน|เก็บ|ส่ง|บ้าน|คอนโด)$/)) {
-      customerName = nameMatch[0].trim();
+      customerName = nameMatch[0].replace(/^[^ก-๙]/, '').trim(); // drop the '(' / space matched before the prefix
       break;
     }
   }
@@ -198,7 +198,7 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
       const itemPrice = itemMatch[5] ? parseFloat(itemMatch[5]) : undefined;
 
       // ตรวจสอบว่าไม่ใช่บรรทัดเบอร์โทรหรือที่อยู่หลุดมา
-      if (!itemName.includes('08') && !itemName.includes('09') && !itemName.includes('06') && !/(?:พี่|คุณ|ป้า|น้า|ลุง)/.test(itemName)) {
+      if (!itemName.includes('08') && !itemName.includes('09') && !itemName.includes('06') && !/(?:^|[^ก-๙])(?:พี่|คุณ|ป้า|น้า|ลุง)/.test(itemName)) {
         items.push({
           id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           name: itemName,
@@ -219,7 +219,7 @@ export function parseSingleOrderText(text: string): ParsedOrderDraft {
       if (
         potentialQty <= 100 &&
         !itemNoUnitMatch[2].startsWith('0') &&
-        !/(?:คุณ|พี่|ป้า|น้า|ลุง|แม่|ช่าง|น้อง)/.test(potentialName)
+        !/(?:^|[^ก-๙])(?:คุณ|พี่|ป้า|น้า|ลุง|แม่|ช่าง|น้อง)/.test(potentialName)
       ) {
         items.push({
           id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,

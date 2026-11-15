@@ -5,21 +5,23 @@ import { timingSafeEqual } from 'node:crypto';
  * Cloud store for cross-device sync (Supabase, tables in supabase/schema.sql).
  * GET  /api/store?since=ISO → rows changed after `since` + the server time to use next.
  * POST /api/store { kv: [{key, value}], orders: [{id, data, deleted}] } → upsert, stamped with server time.
- * Every call needs header x-app-pin = APP_PIN. The Supabase service key never leaves the server.
+ * If APP_PIN is set in Vercel, every call needs header x-app-pin = APP_PIN (the shop chose to run without one;
+ * setting it later turns protection on without code changes). The Supabase key never leaves the server.
  */
 
 const SUPA_URL = (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const SUPA_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
 const APP_PIN = process.env.APP_PIN || '';
 
 const MAX_VALUE = 2_000_000; // chars per key
 const MAX_ROWS = 1000;
 
 function configured() {
-  return SUPA_URL.startsWith('https://') && SUPA_KEY && APP_PIN.length >= 6;
+  return SUPA_URL.startsWith('https://') && !!SUPA_KEY;
 }
 
 async function pinOk(req: NextRequest) {
+  if (!APP_PIN) return true; // no PIN configured: open to anyone with the link
   const given = Buffer.from(req.headers.get('x-app-pin') || '');
   const want = Buffer.from(APP_PIN);
   const ok = given.length === want.length && timingSafeEqual(given, want);
@@ -32,7 +34,8 @@ const supa = (path: string, init: RequestInit = {}) =>
     ...init,
     headers: {
       apikey: SUPA_KEY,
-      Authorization: `Bearer ${SUPA_KEY}`,
+      // legacy service_role keys are JWTs; new sb_secret_ keys go in apikey only
+      ...(SUPA_KEY.startsWith('eyJ') ? { Authorization: `Bearer ${SUPA_KEY}` } : {}),
       'Content-Type': 'application/json',
       ...(init.headers || {})
     },

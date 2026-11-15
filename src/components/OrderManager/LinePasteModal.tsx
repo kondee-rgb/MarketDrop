@@ -116,6 +116,8 @@ export function LinePasteModal({
         stopNumber: existingOrdersCount + idx + 1,
         houseNumber: draft.houseNumber || 'ไม่ระบุ',
         soi: draft.soi || 'ไม่ระบุซอย',
+        locationId: draft.locationId,
+        building: draft.building,
         customerName: draft.customerName || 'ลูกค้า',
         phone: draft.phone || '',
         items: draft.items.length > 0 ? draft.items : [{ id: 'item_1', name: 'สินค้าสดรวม', quantity: 1, unit: 'ชุด', checked: false }],
