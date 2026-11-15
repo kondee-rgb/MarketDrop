@@ -26,6 +26,7 @@ import {
   LocationConfig
 } from '@/lib/locations';
 import { compressImageFile } from '@/lib/image';
+import { mergeParsedOrders, ParsedPhotoOrder } from '@/lib/merge-orders';
 import {
   FrequentContact,
   getFrequentContacts,
@@ -51,6 +52,8 @@ export function PhotoToOrderModal({
 }: PhotoToOrderModalProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [targetType, setTargetType] = useState<'delivery' | 'shopping'>('delivery');
+  const [queue, setQueue] = useState<ParsedPhotoOrder[]>([]);
+  const [batchInfo, setBatchInfo] = useState<{ photos: number; orders: number; index: number; failed: number } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -190,25 +193,62 @@ export function PhotoToOrderModal({
     }
   };
 
+  const requestParse = async (base64: string, mimeType: string): Promise<ParsedPhotoOrder | null> => {
+    const res = await fetch('/api/parse-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64: base64, mimeType, targetMode: targetType })
+    });
+    const json = await res.json();
+    return json.success && json.data ? json.data : null;
+  };
+
   const parseImageWithAI = async (base64: string, mimeType: string) => {
     setIsAnalyzing(true);
     setErrorMsg(null);
 
     try {
-      const res = await fetch('/api/parse-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: base64,
-          mimeType,
-          targetMode: targetType
-        })
-      });
+      const d = await requestParse(base64, mimeType);
+      if (d) {
+        applyParsed(d);
+      } else {
+        setErrorMsg('วิเคราะห์ภาพไม่สำเร็จ คุณสามารถมองรูปแล้วพิมพ์แก้ไขในฟอร์มด้านล่างได้ทันที');
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      setErrorMsg('เกิดข้อผิดพลาดในการเชื่อมต่อ AI — สามารถมองภาพและพิมพ์ข้อมูลลงฟอร์มได้ตามปกติ');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
-      const json = await res.json();
+  // Several photos: read them all, merge the ones from the same customer, then fill one order at a time
+  const handleImagesSelected = async (files: FileList) => {
+    if (files.length === 1) return handleImageSelected(files[0]);
+    setErrorMsg(null);
+    setIsAnalyzing(true);
+    try {
+      const images = await Promise.all(Array.from(files).map(f => compressImageFile(f)));
+      setSelectedImage(images[0].dataUrl);
+      const parsed = await Promise.all(images.map(img => requestParse(img.dataUrl, img.mimeType).catch(() => null)));
+      const ok = parsed.filter((d): d is ParsedPhotoOrder => d !== null);
+      if (!ok.length) {
+        setErrorMsg('อ่านรูปไม่สำเร็จ ลองใหม่อีกครั้ง หรือกรอกเอง');
+        return;
+      }
+      const merged = targetType === 'delivery' ? mergeParsedOrders(ok) : ok;
+      setBatchInfo({ photos: files.length, orders: merged.length, index: 1, failed: parsed.length - ok.length });
+      setQueue(merged.slice(1));
+      applyParsed(merged[0]);
+    } catch {
+      setErrorMsg('อ่านไฟล์รูปไม่สำเร็จ ลองเลือกรูปใหม่อีกครั้ง');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
-      if (json.success && json.data) {
-        const d = json.data;
+  const applyParsed = (d: ParsedPhotoOrder & { building?: string }) => {
+      {
 
         // Auto-fill delivery fields
         if (d.houseNumber) setHouseNumber(d.houseNumber);
@@ -248,7 +288,7 @@ export function PhotoToOrderModal({
             id: `item_${Date.now()}_${idx}`,
             name: it.name || '',
             quantity: it.quantity || '1',
-            unit: it.unit || 'กก.',
+            unit: it.unit || '',
             price: it.price || 0,
             checked: false,
             category: it.category || detectCategory(it.name || '')
@@ -260,20 +300,12 @@ export function PhotoToOrderModal({
             id: `s_${Date.now()}_${idx}`,
             name: it.name || '',
             quantity: String(it.quantity || '1'),
-            unit: it.unit || 'กก.',
+            unit: it.unit || '',
             category: (it.category as ShoppingItem['category']) || detectCategory(it.name || '')
           }));
           setShoppingItems(mappedShopping);
         }
-      } else {
-        setErrorMsg('วิเคราะห์ภาพไม่สำเร็จ คุณสามารถมองรูปแล้วพิมพ์แก้ไขในฟอร์มด้านล่างได้ทันที');
       }
-    } catch (err: unknown) {
-      console.error(err);
-      setErrorMsg('เกิดข้อผิดพลาดในการเชื่อมต่อ AI — สามารถมองภาพและพิมพ์ข้อมูลลงฟอร์มได้ตามปกติ');
-    } finally {
-      setIsAnalyzing(false);
-    }
   };
 
   const handleAddDeliveryItemRow = () => {
@@ -283,7 +315,7 @@ export function PhotoToOrderModal({
         id: `item_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         name: '',
         quantity: '1',
-        unit: 'กก.',
+        unit: '',
         checked: false
       }
     ]);
@@ -355,6 +387,13 @@ export function PhotoToOrderModal({
         updatedAt: now
       };
       onAddDeliveryOrder(newOrder);
+      if (queue.length > 0) {
+        resetFields();
+        applyParsed(queue[0]);
+        setQueue(queue.slice(1));
+        setBatchInfo(b => (b ? { ...b, index: b.index + 1 } : b));
+        return;
+      }
     } else {
       // Add shopping items
       const validShopping = shoppingItems.filter(i => i.name.trim().length > 0);
@@ -376,7 +415,23 @@ export function PhotoToOrderModal({
     handleClose();
   };
 
+  const resetFields = () => {
+    setLocationId('');
+    setBuilding('');
+    setHouseNumber('');
+    setSoi('');
+    setCustomerName('');
+    setPhone('');
+    setTotalAmount('');
+    setNotes('');
+    setSelectedContactId('');
+    setSaveAsFrequent(false);
+    setDeliveryItems([{ id: 'item_1', name: '', quantity: '1', unit: '', checked: false }]);
+  };
+
   const handleClose = () => {
+    setQueue([]);
+    setBatchInfo(null);
     setSelectedImage(null);
     setLocationId('');
     setBuilding('');
@@ -478,8 +533,12 @@ export function PhotoToOrderModal({
                 ref={galleryInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 className="hidden"
-                onChange={e => e.target.files?.[0] && handleImageSelected(e.target.files[0])}
+                onChange={e => {
+                  if (e.target.files?.length) handleImagesSelected(e.target.files);
+                  e.target.value = '';
+                }}
               />
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -531,6 +590,13 @@ export function PhotoToOrderModal({
                 )}
               </div>
 
+              {batchInfo && (
+                <div className="rounded-2xl bg-sky-50 px-3.5 py-2.5 text-xs text-sky-900" aria-live="polite">
+                  อ่าน {batchInfo.photos} รูป → <strong>{batchInfo.orders} ออเดอร์</strong> (รวมรูปของคนเดียวกันแล้ว) · กำลังดู {batchInfo.index}/{batchInfo.orders}
+                  {batchInfo.index < batchInfo.orders && ' · กดบันทึกแล้วจะขึ้นคนถัดไป'}
+                  {batchInfo.failed > 0 && ` · อ่านไม่ได้ ${batchInfo.failed} รูป`}
+                </div>
+              )}
               {errorMsg && (
                 <div className="p-3 bg-amber-50 border border-amber-300 text-amber-950 rounded-2xl text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />

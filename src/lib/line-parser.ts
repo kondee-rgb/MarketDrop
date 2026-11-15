@@ -318,3 +318,22 @@ export function parseBulkOrderText(text: string): ParsedOrderDraft[] {
 
   return results;
 }
+
+/**
+ * Turn dictated speech into the line-based text the parser expects.
+ * Say "คนต่อไป" (or "ต่อไป") between customers and "สั่ง" between the name and the items;
+ * "ทับ" becomes "/", "กิโล" becomes "กก.".
+ */
+export function normalizeSpokenOrder(spoken: string): string {
+  return spoken
+    .replace(/(\d)\s*ทับ\s*(\d)/g, '$1/$2')
+    .replace(/กิโลกรัม|กิโล/g, 'กก.')
+    .replace(/\s*(?:คนต่อไป|ออเดอร์ต่อไป|ต่อไป)\s*/g, '\n---\n')
+    .replace(/\s+สั่ง\s+/g, '\n')
+    // each "<qty> <unit>" ends an item line
+    .replace(/(\d+(?:\.\d+)?\s*(?:กก\.|กรัม|ขีด|กำ|แผง|ถุง|ขวด|ชิ้น|ฟอง|ลูก|หัว|มัด|แพ็ค|แพค|กล่อง|ห่อ|ตัว|ไม้|จาน|ชุด|กระป๋อง|ถ้วย))\s+/g, '$1\n')
+    // the house number and the customer name start their own lines
+    .replace(/\s*(บ้าน(?:เลขที่)?\s*\d+\/\d+)\s+/g, '\n$1\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}

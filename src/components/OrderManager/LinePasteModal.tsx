@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Plus, Trash2, Check, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { parseBulkOrderText } from '@/lib/line-parser';
+import { VoiceOrderButton } from './VoiceOrderButton';
 import { Order, OrderItem, ParsedOrderDraft } from '@/types/order';
 
 interface LinePasteModalProps {
@@ -193,6 +194,9 @@ export function LinePasteModal({
                   </button>
                 </div>
               </div>
+
+              <VoiceOrderButton onText={t => setInputText(prev => (prev.trim() ? `${prev.trim()}
+${t}` : t))} />
 
               <textarea
                 value={inputText}

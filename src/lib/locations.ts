@@ -346,5 +346,34 @@ export function detectLocationFromText(text: string): {
     };
   }
 
+  // 6. No project name in the text: fall back to the house-number prefix (e.g. "57/12" → Ivy River ตึก D)
+  const houseOnly = text.match(/(?:^|[^\d/])(\d{2,4}\/\d+)/);
+  if (houseOnly) {
+    const byPrefix = detectLocationFromHouseNumber(houseOnly[1]);
+    if (byPrefix.locationId) return { ...byPrefix, houseNumber: houseOnly[1] };
+  }
+
   return {};
+}
+
+/**
+ * เดาสถานที่จากเลขบ้าน: เลขขึ้นต้นตรงกับ prefix ของสถานที่ไหน เลือกที่นั่น (prefix ยาวสุดชนะ เช่น 65/146 ก่อน 65/)
+ */
+export function detectLocationFromHouseNumber(houseNumber: string): { locationId?: string; building?: string; subType?: string } {
+  const house = (houseNumber || '').trim();
+  if (!/^\d+\//.test(house)) return {};
+  let best: { locationId: string; building?: string; subType?: string; len: number } | null = null;
+  for (const loc of REAL_LOCATIONS) {
+    const options = loc.subOptions?.length ? loc.subOptions : [{ id: '', name: '', prefix: loc.defaultPrefix }];
+    for (const opt of options) {
+      const prefix = opt.prefix || '';
+      if (!prefix || !house.startsWith(prefix)) continue;
+      if (!best || prefix.length > best.len) {
+        const isBuilding = loc.id === 'ivy-river' || loc.id === 'the-plant';
+        best = { locationId: loc.id, building: isBuilding ? opt.name : undefined, subType: opt.id || undefined, len: prefix.length };
+      }
+    }
+  }
+  if (!best) return {};
+  return { locationId: best.locationId, building: best.building, subType: best.subType };
 }

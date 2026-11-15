@@ -222,6 +222,17 @@ export function ProfitView({
     showToast('ลบรายการราคาเรียบร้อย');
   };
 
+  // Shops already used in the price book, most used first (quick pick when adding an item)
+  const knownShops = Object.entries(
+    priceBookEntries.reduce<Record<string, number>>((acc, e) => {
+      const name = (e.shopName || '').trim();
+      if (name && name !== 'ตลาดสด') acc[name] = (acc[name] || 0) + 1;
+      return acc;
+    }, {})
+  )
+    .sort((a, b) => b[1] - a[1])
+    .map(([name]) => name);
+
   // Filtered price book
   const filteredPriceBook = priceBookEntries.filter(it =>
     it.itemName.toLowerCase().includes(priceSearchQuery.toLowerCase()) ||
@@ -678,6 +689,7 @@ export function ProfitView({
                   placeholder="เช่น เขียงหมูเจ๊พร ตลาดสด"
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 bg-white"
                 />
+                <ShopChips shops={knownShops} value={editShop} onPick={setEditShop} />
               </div>
 
               <div className="grid grid-cols-2 gap-2">
@@ -786,6 +798,7 @@ export function ProfitView({
                   placeholder="ร้านค้า เช่น เขียงหมูเจ๊พร"
                   className="px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white"
                 />
+                <ShopChips shops={knownShops} value={newEntryShop} onPick={setNewEntryShop} />
               </div>
 
               <div className="grid grid-cols-3 gap-2">
@@ -863,6 +876,26 @@ export function ProfitView({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Tap a shop you've used before instead of typing it again. */
+function ShopChips({ shops, value, onPick }: { shops: string[]; value: string; onPick: (shop: string) => void }) {
+  if (!shops.length) return null;
+  return (
+    <div className="flex flex-wrap gap-1 mt-1.5 col-span-full">
+      {shops.slice(0, 8).map(shop => (
+        <button
+          key={shop}
+          type="button"
+          onClick={() => onPick(shop)}
+          aria-pressed={value === shop}
+          className={`px-2.5 py-1 rounded-lg text-[11px] ${value === shop ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`}
+        >
+          {shop}
+        </button>
+      ))}
     </div>
   );
 }

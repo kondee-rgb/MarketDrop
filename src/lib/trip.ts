@@ -144,3 +144,15 @@ export const loadTrip = () => ({ ...DEFAULT_TRIP, ...load<Partial<TripPlan>>(TRI
 export const saveTrip = (t: TripPlan) => save(TRIP_KEY, t);
 export const loadLegMemory = () => load<LegMemory>(LEG_MEMORY_KEY, {});
 export const saveLegMemory = (m: LegMemory) => save(LEG_MEMORY_KEY, m);
+
+/* Whole-route distance read off Google Maps, remembered per route (overrides the per-leg estimate) */
+const ROUTE_KM_KEY = 'marketdrop_route_km_v1';
+
+export function routeKey(plan: TripPlan): string {
+  const route = [plan.startId, ...plan.stopIds];
+  if (plan.roundTrip && plan.stopIds.length > 0) route.push(plan.startId);
+  return route.join('>');
+}
+
+export const loadRouteKm = () => load<Record<string, number>>(ROUTE_KM_KEY, {});
+export const saveRouteKm = (m: Record<string, number>) => save(ROUTE_KM_KEY, m);

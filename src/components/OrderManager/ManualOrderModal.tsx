@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Check, UserPlus, Edit3, Star, MapPin, Building } from 'lucide-react';
 import { Order, OrderItem, PaymentStatus } from '@/types/order';
+import { getPriceBook, lookupExactProduct, rememberUnits } from '@/lib/price-book';
 import {
   REAL_LOCATIONS,
   getLocationById,
-  LocationConfig
+  LocationConfig,
+  detectLocationFromHouseNumber
 } from '@/lib/locations';
 import {
   FrequentContact,
@@ -37,21 +39,26 @@ export function ManualOrderModal({
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [totalAmount, setTotalAmount] = useState<number | ''>('');
+  const [totalTouched, setTotalTouched] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('COD');
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState<OrderItem[]>([
-    { id: 'item_1', name: '', quantity: '1', unit: 'กก.', checked: false }
+    { id: 'item_1', name: '', quantity: '1', unit: '', checked: false }
   ]);
 
   // Frequent Contacts
   const [contactsList, setContactsList] = useState<FrequentContact[]>([]);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
   const [saveAsFrequent, setSaveAsFrequent] = useState(false);
+  const [favLocation, setFavLocation] = useState<string | null>(null);
+  const [menuNames, setMenuNames] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
       const contacts = getFrequentContacts('customer');
       setContactsList(contacts);
+      setFavLocation(null);
+      setMenuNames(getPriceBook().map(e => e.itemName));
     }
   }, [isOpen]);
 
@@ -64,12 +71,13 @@ export function ManualOrderModal({
       setCustomerName(initialOrder.customerName);
       setPhone(initialOrder.phone);
       setTotalAmount(initialOrder.totalAmount);
+      setTotalTouched(true); // editing: keep the saved total
       setPaymentStatus(initialOrder.paymentStatus);
       setNotes(initialOrder.notes);
       setItems(
         initialOrder.items && initialOrder.items.length > 0
           ? initialOrder.items
-          : [{ id: 'item_1', name: '', quantity: '1', unit: 'กก.', checked: false }]
+          : [{ id: 'item_1', name: '', quantity: '1', unit: '', checked: false }]
       );
       setSaveAsFrequent(false);
       setSelectedContactId('');
@@ -81,10 +89,11 @@ export function ManualOrderModal({
       setCustomerName('');
       setPhone('');
       setTotalAmount('');
+      setTotalTouched(false);
       setPaymentStatus('COD');
       setNotes('');
       setItems([
-        { id: `item_${Date.now()}`, name: '', quantity: '1', unit: 'กก.', checked: false }
+        { id: `item_${Date.now()}`, name: '', quantity: '1', unit: '', checked: false }
       ]);
       setSaveAsFrequent(false);
       setSelectedContactId('');
@@ -204,7 +213,21 @@ export function ManualOrderModal({
   const handleUpdateItem = (idx: number, field: keyof OrderItem, val: string | number) => {
     setItems(prev => {
       const next = [...prev];
-      next[idx] = { ...next[idx], [field]: val };
+      let item = { ...next[idx], [field]: val };
+      if (field === 'name' || field === 'quantity') {
+        const known = lookupExactProduct(String(item.name));
+        if (known) {
+          if (known.unit && (field === 'name' || !item.unit)) item = { ...item, unit: known.unit };
+          const qty = parseFloat(String(item.quantity)) || 1;
+          if (known.sellingPrice) item = { ...item, price: Math.round(known.sellingPrice * qty * 100) / 100 };
+        }
+      }
+      next[idx] = item;
+      // total follows the item prices until the user types a total themselves
+      if (!totalTouched) {
+        const sum = next.reduce((t, it) => t + (typeof it.price === 'number' ? it.price : 0), 0);
+        if (sum > 0) setTotalAmount(sum);
+      }
       return next;
     });
   };
@@ -215,6 +238,7 @@ export function ManualOrderModal({
 
     const now = new Date().toISOString();
     const cleanItems = items.filter(it => it.name.trim().length > 0);
+    rememberUnits(cleanItems);
 
     // Save as frequent contact if requested
     if (saveAsFrequent && customerName.trim()) {
@@ -302,25 +326,54 @@ export function ManualOrderModal({
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-          {/* Frequent Contacts Dropdown */}
-          <div className="bg-emerald-50/70 rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="flex items-center gap-1.5">
-              <Star className="w-4 h-4 text-amber-500 fill-amber-400" />
-              <span className="text-xs font-bold text-emerald-950">เลือกลูกค้าประจำ:</span>
-            </div>
-            <select
-              value={selectedContactId}
-              onChange={e => handleSelectContact(e.target.value)}
-              className="flex-1 max-w-full sm:max-w-xs px-3 py-1.5 text-xs font-medium rounded-xl border border-emerald-300 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              <option value="">-- เลือกลูกค้าประจำเพื่อกรอกทันที (1-Click) --</option>
-              {contactsList.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.name} {c.phone ? `(${c.phone})` : ''} - {c.houseNumber || ''} {c.building || ''}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Regular customers: pick the place first, then who */}
+          {contactsList.length > 0 && (() => {
+            const placeOf = (c: FrequentContact) => c.locationId || 'other';
+            const places = Array.from(new Set(contactsList.map(placeOf)));
+            const placeName = (id: string) => (id === 'other' ? 'อื่นๆ' : getLocationById(id)?.shortName || id);
+            const shown = favLocation ? contactsList.filter(c => placeOf(c) === favLocation) : [];
+            return (
+              <div className="rounded-2xl bg-amber-50/60 p-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-400" aria-hidden="true" />
+                  ลูกค้าประจำ · เลือกสถานที่ก่อน
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {places.map(id => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setFavLocation(favLocation === id ? null : id)}
+                      aria-pressed={favLocation === id}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-medium ${
+                        favLocation === id ? 'bg-slate-900 text-white' : 'bg-white ring-1 ring-slate-200 text-slate-700'
+                      }`}
+                    >
+                      {placeName(id)} ({contactsList.filter(c => placeOf(c) === id).length})
+                    </button>
+                  ))}
+                </div>
+                {shown.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 animate-in fade-in duration-150">
+                    {shown.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleSelectContact(c.id)}
+                        aria-pressed={selectedContactId === c.id}
+                        className={`px-3 py-1.5 rounded-xl text-xs text-left ${
+                          selectedContactId === c.id ? 'bg-emerald-600 text-white' : 'bg-white ring-1 ring-slate-200 text-slate-800'
+                        }`}
+                      >
+                        <span className="font-semibold">{c.name}</span>
+                        {c.houseNumber && <span className="opacity-70"> · {c.houseNumber}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Location Presets */}
           <div className="space-y-2">
@@ -410,7 +463,16 @@ export function ManualOrderModal({
                 type="text"
                 required
                 value={houseNumber}
-                onChange={e => setHouseNumber(e.target.value)}
+                onChange={e => {
+                  const value = e.target.value;
+                  setHouseNumber(value);
+                  // number starts like a known place (57/… = Ivy River ตึก D) → select it
+                  const found = detectLocationFromHouseNumber(value);
+                  if (found.locationId) {
+                    if (found.locationId !== locationId) setLocationId(found.locationId);
+                    if (found.building && found.building !== building) setBuilding(found.building);
+                  }
+                }}
                 placeholder={
                   currentLocationConfig?.defaultPrefix
                     ? `เช่น ${currentLocationConfig.defaultPrefix}123`
@@ -475,6 +537,11 @@ export function ManualOrderModal({
               </button>
             </div>
 
+            <datalist id="menu-names">
+              {menuNames.map(n => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
             <div className="space-y-2">
               {items.map((item, idx) => (
                 <div
@@ -484,6 +551,7 @@ export function ManualOrderModal({
                   <input
                     type="text"
                     value={item.name}
+                    list="menu-names"
                     onChange={e => handleUpdateItem(idx, 'name', e.target.value)}
                     placeholder="ชื่อสินค้า เช่น ผักกาด, หมูบด"
                     className="flex-1 px-2.5 py-1.5 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
@@ -500,6 +568,7 @@ export function ManualOrderModal({
                     value={item.unit}
                     onChange={e => handleUpdateItem(idx, 'unit', e.target.value)}
                     placeholder="หน่วย"
+                    aria-label="หน่วย (ไม่บังคับ)"
                     className="w-16 px-2 py-1.5 text-xs rounded-xl border border-slate-300 bg-white text-center focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                   {items.length > 1 && (
@@ -527,7 +596,7 @@ export function ManualOrderModal({
                 step="any"
                 value={totalAmount}
                 onChange={e =>
-                  setTotalAmount(e.target.value === '' ? '' : parseFloat(e.target.value))
+                  { setTotalTouched(true); setTotalAmount(e.target.value === '' ? '' : parseFloat(e.target.value)); }
                 }
                 placeholder="0"
                 className="w-full mt-1 px-3 py-2 text-base font-bold text-slate-900 rounded-xl border border-slate-300 bg-white focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 focus:outline-none"

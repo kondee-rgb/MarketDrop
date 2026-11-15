@@ -1468,3 +1468,45 @@ describe('23. PromptPay QR payload', () => {
     expect(maskPromptPayId('0812345678')).toBe('081-xxx-5678');
   });
 });
+
+describe('24. Voice orders, house-number → location, unit memory', () => {
+  it('turns dictated speech into separate orders with items, units and location', async () => {
+    const { normalizeSpokenOrder, parseBulkOrderText } = await import('../src/lib/line-parser');
+    const drafts = parseBulkOrderText(
+      normalizeSpokenOrder('บ้าน 51 ทับ 3 คุณวิภา สั่ง หมูบด 1 กิโล ผักบุ้ง 2 กำ คนต่อไป บ้าน 57 ทับ 10 พี่นก สั่ง ไข่ไก่ 1 แผง ยอด 180 บาท โอนแล้ว')
+    );
+    expect(drafts.length).toBe(2);
+    expect([drafts[0].houseNumber, drafts[0].customerName, drafts[0].locationId, drafts[0].building]).toEqual(['51/3', 'คุณวิภา', 'ivy-river', 'ตึก A']);
+    expect(drafts[0].items.map(i => `${i.name} ${i.quantity} ${i.unit}`)).toEqual(['หมูบด 1 กก.', 'ผักบุ้ง 2 กำ']);
+    expect([drafts[1].customerName, drafts[1].totalAmount, drafts[1].paymentStatus, drafts[1].building]).toEqual(['พี่นก', 180, 'PAID', 'ตึก D']);
+  });
+
+  it('picks the location from the house-number prefix (longest prefix wins)', async () => {
+    const { detectLocationFromHouseNumber } = await import('../src/lib/locations');
+    expect(detectLocationFromHouseNumber('57/12')).toMatchObject({ locationId: 'ivy-river', building: 'ตึก D' });
+    expect(detectLocationFromHouseNumber('79/5')).toMatchObject({ locationId: 'the-plant', building: 'ทาวน์โฮม' });
+    expect(detectLocationFromHouseNumber('65/14612').locationId).toBe('cher-suksawat');
+    expect(detectLocationFromHouseNumber('800/3').locationId).toBe('thanasin');
+    expect(detectLocationFromHouseNumber('12/1')).toEqual({});
+    expect(detectLocationFromHouseNumber('')).toEqual({});
+  });
+});
+
+describe('25. Merge order photos from the same customer', () => {
+  it('groups by customer name (ignoring คุณ/พี่) or house number and adds up items and totals', async () => {
+    const { mergeParsedOrders } = await import('../src/lib/merge-orders');
+    const merged = mergeParsedOrders([
+      { customerName: 'คุณวิภา', houseNumber: '51/3', totalAmount: 200, paymentStatus: 'PAID', items: [{ name: 'หมูบด', quantity: '1', unit: 'กก.' }] },
+      { customerName: 'พี่นก', houseNumber: '57/10', totalAmount: 120, paymentStatus: 'COD', items: [{ name: 'ไข่ไก่', quantity: '1', unit: 'แผง' }] },
+      { customerName: 'วิภา', houseNumber: '', totalAmount: 100, paymentStatus: 'COD', notes: 'วางหน้าบ้าน', items: [{ name: 'หมูบด', quantity: '0.5', unit: 'กก.' }, { name: 'คะน้า', quantity: '2', unit: 'กำ' }] },
+      { customerName: '', houseNumber: '57/10', totalAmount: 30, items: [{ name: 'ผักชี', quantity: '1', unit: 'กำ' }] }
+    ]);
+    expect(merged.length).toBe(2); // วิภา ×2 by name; the unnamed '57/10' photo joins พี่นก by house number
+    expect(merged[1].items!.map(i => i.name)).toEqual(['ไข่ไก่', 'ผักชี']);
+    const wipa = merged[0];
+    expect([wipa.customerName, wipa.houseNumber, wipa.totalAmount, wipa.paymentStatus, wipa.notes]).toEqual(['คุณวิภา', '51/3', 300, 'COD', 'วางหน้าบ้าน']);
+    expect(wipa.items!.map(i => `${i.name} ${i.quantity} ${i.unit}`)).toEqual(['หมูบด 1.5 กก.', 'คะน้า 2 กำ']);
+    expect(mergeParsedOrders([{ houseNumber: '81/2' }, { houseNumber: '81/2' }]).length).toBe(1);
+    expect(mergeParsedOrders([{}, {}]).length).toBe(2); // nothing to match on → keep apart
+  });
+});

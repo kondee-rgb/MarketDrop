@@ -17,6 +17,9 @@ import {
   saveTrip,
   loadLegMemory,
   saveLegMemory,
+  routeKey,
+  loadRouteKm,
+  saveRouteKm,
   DEFAULT_PLACES,
   DEFAULT_TRIP
 } from '@/lib/trip';
@@ -37,15 +40,22 @@ export function TripPlanner({ onTotalKmChange }: TripPlannerProps) {
   const [newName, setNewName] = useState('');
   const [newCoords, setNewCoords] = useState('');
   const [geoMsg, setGeoMsg] = useState<string | null>(null);
+  const [routeKm, setRouteKm] = useState<Record<string, number>>({});
+  const [editingTotal, setEditingTotal] = useState(false);
+  const [totalDraft, setTotalDraft] = useState('');
 
   useEffect(() => {
     setPlaces(loadPlaces());
     setPlan(loadTrip());
     setMemory(loadLegMemory());
+    setRouteKm(loadRouteKm());
   }, []);
 
   const legs = useMemo(() => buildTripLegs(plan, places, memory), [plan, places, memory]);
-  const totalKm = tripTotalKm(legs);
+  const legsKm = tripTotalKm(legs);
+  const key = routeKey(plan);
+  const mapsKm = routeKm[key]; // distance the user read off Google Maps for this exact route
+  const totalKm = typeof mapsKm === 'number' ? mapsKm : legsKm;
   const missingCount = legs.filter(l => l.source === 'missing').length;
   const mapsUrl = buildMapsDirectionsUrl(plan, places);
 
@@ -329,12 +339,73 @@ export function TripPlanner({ onTotalKmChange }: TripPlannerProps) {
       <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
         <div>
           <p className="text-[11px] text-slate-500">ระยะทางรวมวันนี้</p>
-          <p className="text-xl font-semibold text-slate-900 tabular-nums">
-            {totalKm} <span className="text-sm font-normal text-slate-500">กม.</span>
-          </p>
-          {missingCount > 0 && (
-            <p className="text-[11px] text-amber-700">ยังไม่ได้ใส่ระยะ {missingCount} ช่วง</p>
+          {editingTotal ? (
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <input
+                autoFocus
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                value={totalDraft}
+                onChange={e => setTotalDraft(e.target.value)}
+                aria-label="ระยะทางตาม Google Maps (กม.)"
+                className="w-20 px-2.5 py-1 rounded-lg bg-white ring-1 ring-slate-300 border-0 tabular-nums focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+              />
+              <span className="text-xs text-slate-500">กม.</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const km = parseFloat(totalDraft);
+                  if (Number.isFinite(km) && km >= 0) {
+                    const next = { ...routeKm, [key]: Math.round(km * 10) / 10 };
+                    setRouteKm(next);
+                    saveRouteKm(next);
+                  }
+                  setEditingTotal(false);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold"
+              >
+                บันทึก
+              </button>
+            </div>
+          ) : (
+            <p className="text-xl font-semibold text-slate-900 tabular-nums">
+              {totalKm} <span className="text-sm font-normal text-slate-500">กม.</span>
+            </p>
           )}
+          {!editingTotal && (typeof mapsKm === 'number' ? (
+            <p className="text-[11px] text-emerald-700">
+              ตาม Google Maps (จำไว้แล้ว) ·{' '}
+              <button
+                type="button"
+                className="underline text-slate-500"
+                onClick={() => {
+                  const next = { ...routeKm };
+                  delete next[key];
+                  setRouteKm(next);
+                  saveRouteKm(next);
+                }}
+              >
+                ใช้ค่าประมาณ ({legsKm})
+              </button>
+            </p>
+          ) : (
+            <>
+              {missingCount > 0 && <p className="text-[11px] text-amber-700">ยังไม่ได้ใส่ระยะ {missingCount} ช่วง</p>}
+              {plan.stopIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTotalDraft(String(totalKm || ''));
+                    setEditingTotal(true);
+                  }}
+                  className="text-[11px] text-slate-600 underline"
+                >
+                  ใส่ระยะจริงจาก Maps
+                </button>
+              )}
+            </>
+          ))}
         </div>
         {mapsUrl && (
           <a

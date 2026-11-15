@@ -158,7 +158,7 @@ export function DriverView({
               title="ก็อปข้อความจาก LINE มาวางสกัดออเดอร์ทันที"
             >
               <ClipboardList className="w-3.5 h-3.5" />
-              <span>วางแชท LINE</span>
+              <span>วางแชท / พูด</span>
             </button>
           )}
 
@@ -357,7 +357,7 @@ export function DriverView({
               </div>
               <h3 className="font-bold text-slate-800">ยังไม่มีรายการส่งของในระบบ</h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                คุณสามารถกด <strong>"วางแชท LINE"</strong>, <strong>"คีย์เอง"</strong> หรือ <strong>"สแกนรูป"</strong> ด้านบนเพื่อเพิ่มออเดอร์ได้ทันที
+                คุณสามารถกด <strong>"วางแชท / พูด"</strong>, <strong>"คีย์เอง"</strong> หรือ <strong>"สแกนรูป"</strong> ด้านบนเพื่อเพิ่มออเดอร์ได้ทันที
               </p>
             </div>
           ) : (

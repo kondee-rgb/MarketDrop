@@ -190,3 +190,40 @@ export function clearPriceBook(): void {
     memoryPriceBook = [];
   }
 }
+
+/* ---------------- Unit memory (จำหน่วยของสินค้าแต่ละอย่าง) ---------------- */
+
+const UNIT_MEMORY_KEY = 'marketdrop_unit_memory_v1';
+
+function readUnitMemory(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(localStorage.getItem(UNIT_MEMORY_KEY) || '{}') || {};
+  } catch {
+    return {};
+  }
+}
+
+/** Remember the unit each product was last ordered in. */
+export function rememberUnits(items: { name: string; unit?: string }[]): void {
+  const memory = readUnitMemory();
+  for (const it of items) {
+    const name = it.name.trim().toLowerCase();
+    if (name && it.unit?.trim()) memory[name] = it.unit.trim();
+  }
+  try {
+    localStorage.setItem(UNIT_MEMORY_KEY, JSON.stringify(memory));
+  } catch {
+    // ignore
+  }
+}
+
+/** Exact-name lookup for autofill (no partial matching: typing "หมู" must not grab "หมูบด"). */
+export function lookupExactProduct(itemName: string): { unit?: string; sellingPrice?: number } | null {
+  const name = (itemName || '').trim().toLowerCase();
+  if (!name) return null;
+  const entry = getPriceBook().find(it => it.itemName.trim().toLowerCase() === name);
+  const unit = entry?.unit || readUnitMemory()[name];
+  if (!entry && !unit) return null;
+  return { unit, sellingPrice: entry?.sellingPrice || undefined };
+}

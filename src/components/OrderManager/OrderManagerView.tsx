@@ -135,7 +135,7 @@ export function OrderManagerView({
               className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700"
             >
               <ClipboardList className="w-4 h-4" />
-              <span>วางแชท LINE</span>
+              <span>วางแชท / พูด</span>
             </button>
 
             <button
@@ -258,7 +258,7 @@ export function OrderManagerView({
           </div>
           <h3 className="font-bold text-slate-700">ไม่พบรายการออเดอร์</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            กดปุ่ม &ldquo;วางแชท LINE&rdquo; เพื่อดึงข้อมูลออเดอร์จากแชท หรือกดปุ่ม &ldquo;เพิ่มออเดอร์&rdquo;
+            กดปุ่ม &ldquo;วางแชท / พูด&rdquo; เพื่อดึงข้อมูลออเดอร์จากแชท หรือกดปุ่ม &ldquo;เพิ่มออเดอร์&rdquo;
           </p>
           <button
             onClick={() => setIsPasteModalOpen(true)}
