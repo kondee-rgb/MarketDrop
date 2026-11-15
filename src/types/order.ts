@@ -10,6 +10,7 @@ export interface OrderItem {
   checked?: boolean; // สำหรับ Driver checklist
   price?: number; // ราคาขายต่อหน่วย หรือราคารวม
   costPrice?: number; // ราคาทุนที่ซื้อจากตลาด (บาท)
+  listCost?: number; // ราคาตั้งก่อนต่อราคา (บาท/หน่วย) — set when a bargain was recorded
   shopName?: string; // ชื่อร้าน/แผงค้าในตลาดสด เช่น เขียงหมูเจ๊พร
   category?: 'meat' | 'veg' | 'egg_dairy' | 'spice' | 'dry' | 'other';
 }

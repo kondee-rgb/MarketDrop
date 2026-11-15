@@ -1,5 +1,5 @@
 import { Order, OrderItem, ShoppingItem } from '@/types/order';
-import { lookupPriceBook } from './price-book';
+import { canonicalName, lookupPriceBook, toBaseUnit } from './price-book';
 
 /**
  * จัดหมวดหมู่ของสดอัตโนมัติตามชื่อสินค้า
@@ -111,6 +111,18 @@ export function saveShoppingState(state: SavedShoppingState): void {
   }
 }
 
+/** Grouping key for one order line: main name (aliases resolved) + main unit (conversions applied). */
+export function shoppingKeyFor(name: string, qty: number, unit: string) {
+  const main = canonicalName(name.trim());
+  const base = toBaseUnit(main, qty, (unit || '').trim());
+  return { name: main, qty: base.qty, unit: base.unit, key: `${main}__${base.unit.toLowerCase()}` };
+}
+
+export const shoppingIdFromKey = (key: string) => `shop_${key.replace(/[^a-zA-Z0-9ก-๙]/g, '_')}`;
+
+/** Shopping-list id an order line is bought under (for the "bought?" dot on the delivery page). */
+export const shoppingIdFor = (name: string, unit: string) => shoppingIdFromKey(shoppingKeyFor(name, 1, unit).key);
+
 /**
  * รวบรวมและคำนวณรายการของที่ต้องซื้อจากออเดอร์ทั้งหมด
  */
@@ -126,20 +138,19 @@ export function aggregateShoppingList(
     if (order.deliveryStatus === 'CANCELLED') continue;
 
     for (const it of order.items) {
-      const cleanName = it.name.trim();
-      if (!cleanName) continue;
-
-      // Group key: ชื่อสินค้า + หน่วย เช่น "หมูบด__กก."
-      const key = `${cleanName}__${it.unit.trim().toLowerCase()}`;
+      if (!it.name.trim()) continue;
+      const numQty = parseFloat(String(it.quantity)) || 1;
+      // same menu under another name, or in another unit, is bought together
+      const { name: cleanName, qty: baseQty, unit: baseUnit, key } = shoppingKeyFor(it.name, numQty, it.unit);
 
       if (!itemMap.has(key)) {
         const cat = it.category || detectCategory(cleanName);
         itemMap.set(key, {
-          id: `shop_${key.replace(/[^a-zA-Z0-9ก-๙]/g, '_')}`,
+          id: shoppingIdFromKey(key),
           name: cleanName,
           category: cat,
           totalQuantity: 0,
-          unit: it.unit.trim() || 'ชิ้น',
+          unit: baseUnit || 'ชิ้น',
           bought: false,
           estimatedPrice: 0,
           allocations: []
@@ -147,9 +158,8 @@ export function aggregateShoppingList(
       }
 
       const current = itemMap.get(key)!;
-      const numQty = parseFloat(String(it.quantity)) || 1;
       const currentQty = typeof current.totalQuantity === 'number' ? current.totalQuantity : parseFloat(String(current.totalQuantity)) || 0;
-      current.totalQuantity = currentQty + numQty;
+      current.totalQuantity = Math.round((currentQty + baseQty) * 1000) / 1000;
       current.estimatedPrice = (current.estimatedPrice || 0) + (it.price || 0);
 
       // บันทึกการแบ่งส่งบ้าน พร้อมรายละเอียดโครงการและซอย

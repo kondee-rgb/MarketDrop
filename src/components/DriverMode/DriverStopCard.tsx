@@ -18,19 +18,29 @@ import { Order } from '@/types/order';
 import { getLocationById } from '@/lib/locations';
 import { DeliveryNotifyModal } from './DeliveryNotifyModal';
 import { PromptPayQrModal } from './PromptPayQrModal';
+import { shoppingIdFor } from '@/lib/shopping-aggregator';
+import { findEntry } from '@/lib/price-book';
+
+/** Shop an item is bought from (order line first, then price book); '' for the generic market. */
+const shopOf = (it: { name: string; shopName?: string }) => {
+  const shop = it.shopName || findEntry(it.name)?.shopName || '';
+  return shop === 'ตลาดสด' ? '' : shop;
+};
 
 interface DriverStopCardProps {
   order: Order;
   onToggleItemCheck: (orderId: string, itemId: string) => void;
   onOpenConfirmModal: (order: Order) => void;
   onRevertDelivery: (orderId: string) => void;
+  boughtShoppingIds?: string[];
 }
 
 export function DriverStopCard({
   order,
   onToggleItemCheck,
   onOpenConfirmModal,
-  onRevertDelivery
+  onRevertDelivery,
+  boughtShoppingIds
 }: DriverStopCardProps) {
   const [showQr, setShowQr] = useState(false);
   const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false);
@@ -209,8 +219,16 @@ export function DriverStopCard({
                   ) : (
                     <Square className="w-5 h-5 text-slate-400 flex-shrink-0" />
                   )}
-                  <span className={`font-semibold text-sm sm:text-base ${item.checked ? 'line-through text-slate-400' : ''}`}>
-                    {item.name}
+                  <span className="min-w-0">
+                    <span className={`block font-semibold text-sm sm:text-base ${item.checked ? 'line-through text-slate-400' : ''}`}>
+                      {item.name}
+                    </span>
+                    {boughtShoppingIds && !item.checked && !isDelivered && (
+                      <span className="block text-[11px] text-slate-500">
+                        {boughtShoppingIds.includes(shoppingIdFor(item.name, item.unit)) ? '🟢 ซื้อแล้ว' : '⚪ ยังไม่ซื้อ'}
+                        {shopOf(item) && ` · ${shopOf(item)}`}
+                      </span>
+                    )}
                   </span>
                 </div>
 

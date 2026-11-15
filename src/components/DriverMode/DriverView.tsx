@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import { Order, PaymentMethod, SortDirection } from '@/types/order';
 import { DriverStopCard } from './DriverStopCard';
+import { PlaceChips } from './PlaceChips';
+import { shoppingIdFor } from '@/lib/shopping-aggregator';
 import { SortableList } from '@/components/SortableList';
 import { PaymentConfirmModal } from './PaymentConfirmModal';
 import { DeliveryNotifyModal } from './DeliveryNotifyModal';
@@ -43,6 +45,7 @@ interface DriverViewProps {
   sortDirection?: SortDirection;
   onSortByHouse?: (direction: SortDirection) => void;
   onMoveOrder?: (fromOrderId: string, toOrderId: string) => void;
+  boughtShoppingIds?: string[];
 }
 
 export function DriverView({
@@ -55,9 +58,12 @@ export function DriverView({
   onOpenManualModal,
   sortDirection,
   onSortByHouse,
-  onMoveOrder
+  onMoveOrder,
+  boughtShoppingIds
 }: DriverViewProps) {
   const [reorderMode, setReorderMode] = useState(false);
+  const isBought = (it: { name: string; unit: string }) =>
+    !!boughtShoppingIds?.includes(shoppingIdFor(it.name, it.unit));
   // Sub-tab: 'manifest' (สรุปเส้นทาง & เลขที่บ้าน) vs 'cards' (คิวส่งทีละบ้าน)
   const [subTab, setSubTab] = useState<'manifest' | 'cards'>('manifest');
 
@@ -186,6 +192,7 @@ export function DriverView({
             </button>
           )}
         </div>
+        <PlaceChips />
 
         {/* Sub-tabs Selection Header */}
         <div className="mt-3 pt-3 border-t border-slate-100">
@@ -489,9 +496,13 @@ export function DriverView({
                               className={`text-xs px-2.5 py-1 rounded-xl border flex items-center gap-1 ${
                                 item.checked
                                   ? 'bg-slate-100 text-slate-400 border-slate-200 line-through'
-                                  : 'bg-emerald-50/70 text-emerald-900 border-emerald-200 font-medium'
+                                  : isBought(item)
+                                    ? 'bg-emerald-50/70 text-emerald-900 border-emerald-200 font-medium'
+                                    : 'bg-white text-slate-700 border-dashed border-slate-300 font-medium'
                               }`}
+                              title={isBought(item) ? 'ซื้อแล้ว' : 'ยังไม่ซื้อ'}
                             >
+                              {!item.checked && <span aria-hidden="true">{isBought(item) ? '🟢' : '⚪'}</span>}
                               <span>{item.name}</span>
                               <strong className="font-bold text-emerald-800">
                                 {item.quantity} {item.unit}
@@ -542,6 +553,7 @@ export function DriverView({
                   onToggleItemCheck={onToggleItemCheck}
                   onOpenConfirmModal={orderToConfirm => setActiveConfirmOrder(orderToConfirm)}
                   onRevertDelivery={onRevertDelivery}
+                  boughtShoppingIds={boughtShoppingIds}
                 />
               </div>
             ))

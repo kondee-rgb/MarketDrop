@@ -11,7 +11,20 @@ export interface PriceBookEntry {
   category: ShoppingItem['category'];
   notes?: string;
   lastUpdated: string;
+  shops?: ShopPrice[]; // every shop this item is bought from, with its cost
+  aliases?: string[]; // other names customers use for the same menu
+  locationPrices?: Record<string, number>; // selling price at a specific location id
+  variants?: string[]; // fillings/toppings at the same price, e.g. ไส้กุ้ง, ไส้หมู
+  unitConversions?: Record<string, number>; // 1 <unit> = n <entry.unit>, e.g. { ขีด: 0.1 }
 }
+
+export interface ShopPrice {
+  name: string;
+  cost: number;
+}
+
+/** Item name with a filling picked: "ข้าวเหนียวดำ · ไส้กุ้ง" */
+export const VARIANT_SEP = ' · ';
 
 export const PRICE_BOOK_KEY = 'marketdrop_price_book_v1';
 
@@ -77,17 +90,31 @@ export function savePriceBookEntry(
     current.push(updatedEntry);
   }
 
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(PRICE_BOOK_KEY, JSON.stringify(current));
-    } catch (err) {
-      console.error('Failed to save price book entry:', err);
-    }
-  } else {
-    memoryPriceBook = [...current];
+  // keep the per-shop cost list in step with the shop/cost just saved
+  if (updatedEntry.shopName && updatedEntry.shopName !== 'ตลาดสด') {
+    const shops = (updatedEntry.shops || []).filter(sp => sp.name !== updatedEntry.shopName);
+    updatedEntry.shops = [...shops, { name: updatedEntry.shopName, cost: updatedEntry.costPrice }];
   }
 
+  writeBook(current);
   return updatedEntry;
+}
+
+function writeBook(list: PriceBookEntry[]): void {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(PRICE_BOOK_KEY, JSON.stringify(list));
+    } catch (err) {
+      console.error('Failed to save price book:', err);
+    }
+  } else {
+    memoryPriceBook = [...list];
+  }
+}
+
+/** Change extra fields (aliases, variants, location prices, conversions, shops) of one entry. */
+export function patchPriceBookEntry(id: string, patch: Partial<PriceBookEntry>): void {
+  writeBook(getPriceBook().map(e => (e.id === id ? { ...e, ...patch, lastUpdated: new Date().toISOString() } : e)));
 }
 
 /**
@@ -99,8 +126,8 @@ export function lookupPriceBook(itemName: string): PriceBookEntry | null {
   const list = getPriceBook();
   const query = itemName.trim().toLowerCase();
 
-  // 1. ตรวจสอบแบบตรงตัวก่อน (Exact Match)
-  const exact = list.find(it => it.itemName.toLowerCase() === query);
+  // 1. ตรวจสอบแบบตรงตัวก่อน (Exact Match) รวมชื่อเรียกอื่น
+  const exact = findEntry(itemName);
   if (exact) return exact;
 
   // 2. ตรวจสอบแบบข้อความย่อย (Contains / Substring)
@@ -218,12 +245,108 @@ export function rememberUnits(items: { name: string; unit?: string }[]): void {
   }
 }
 
+const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, '');
+
+/** Split "ข้าวเหนียวดำ · ไส้กุ้ง" into base name and filling. */
+export function splitVariant(name: string): { base: string; variant?: string } {
+  const at = name.indexOf(VARIANT_SEP);
+  return at < 0 ? { base: name.trim() } : { base: name.slice(0, at).trim(), variant: name.slice(at + VARIANT_SEP.length).trim() };
+}
+
+/** Entry whose name or alias is exactly this name (filling ignored). */
+export function findEntry(itemName: string): PriceBookEntry | null {
+  const q = norm(splitVariant(itemName || '').base);
+  if (!q) return null;
+  const list = getPriceBook();
+  return (
+    list.find(e => norm(e.itemName) === q) ||
+    list.find(e => (e.aliases || []).some(a => norm(a) === q)) ||
+    null
+  );
+}
+
+/** The main name for an item (aliases → main name), filling kept. */
+export function canonicalName(itemName: string): string {
+  const { base, variant } = splitVariant(itemName || '');
+  const entry = findEntry(base);
+  const main = entry ? entry.itemName : base;
+  return variant ? `${main}${VARIANT_SEP}${variant}` : main;
+}
+
+const bigrams = (s: string) => {
+  const t = norm(s);
+  const out: string[] = [];
+  for (let i = 0; i < t.length - 1; i++) out.push(t.slice(i, i + 2));
+  return out;
+};
+
+/** Closest price-book name for a name that isn't known yet (asks "did you mean …?"). */
+export function suggestCanonical(itemName: string): string | null {
+  const base = splitVariant(itemName || '').base;
+  if (norm(base).length < 3 || findEntry(base)) return null;
+  const a = bigrams(base);
+  let best: { name: string; score: number } | null = null;
+  for (const e of getPriceBook()) {
+    const b = bigrams(e.itemName);
+    const pool = [...b];
+    let hit = 0;
+    for (const g of a) {
+      const i = pool.indexOf(g);
+      if (i >= 0) {
+        hit++;
+        pool.splice(i, 1);
+      }
+    }
+    const score = (2 * hit) / (a.length + b.length || 1); // Dice similarity
+    const contains = norm(e.itemName).includes(norm(base)) || norm(base).includes(norm(e.itemName));
+    const s = contains ? Math.max(score, 0.7) : score;
+    if (s >= 0.6 && (!best || s > best.score)) best = { name: e.itemName, score: s };
+  }
+  return best?.name ?? null;
+}
+
+/** Remember that `alias` means the price-book item `mainName`. */
+export function addAlias(mainName: string, alias: string): void {
+  const entry = findEntry(mainName);
+  const clean = splitVariant(alias).base;
+  if (!entry || !clean || norm(clean) === norm(entry.itemName)) return;
+  if ((entry.aliases || []).some(a => norm(a) === norm(clean))) return;
+  patchPriceBookEntry(entry.id, { aliases: [...(entry.aliases || []), clean] });
+}
+
+/** Quantity in the item's main unit when a conversion is known (1 แพ็ค = 6 ห่อ, 1 ขีด = 0.1 กก.). */
+export function toBaseUnit(itemName: string, qty: number, unit: string): { qty: number; unit: string } {
+  const entry = findEntry(itemName);
+  const u = (unit || '').trim();
+  if (!entry || !u || u === entry.unit) return { qty, unit: u };
+  const factor = entry.unitConversions?.[u];
+  return factor ? { qty: Math.round(qty * factor * 1000) / 1000, unit: entry.unit } : { qty, unit: u };
+}
+
+/** Pick which shop to buy this item from: its cost becomes the current cost. */
+export function selectShop(itemName: string, shopName: string): PriceBookEntry | null {
+  const entry = findEntry(itemName);
+  const shop = entry?.shops?.find(sp => sp.name === shopName);
+  if (!entry || !shop) return null;
+  patchPriceBookEntry(entry.id, { shopName: shop.name, costPrice: shop.cost });
+  return { ...entry, shopName: shop.name, costPrice: shop.cost };
+}
+
 /** Exact-name lookup for autofill (no partial matching: typing "หมู" must not grab "หมูบด"). */
-export function lookupExactProduct(itemName: string): { unit?: string; sellingPrice?: number } | null {
+export function lookupExactProduct(
+  itemName: string,
+  locationId?: string
+): { unit?: string; sellingPrice?: number; mainName?: string; variants?: string[] } | null {
   const name = (itemName || '').trim().toLowerCase();
   if (!name) return null;
-  const entry = getPriceBook().find(it => it.itemName.trim().toLowerCase() === name);
+  const entry = findEntry(itemName);
   const unit = entry?.unit || readUnitMemory()[name];
   if (!entry && !unit) return null;
-  return { unit, sellingPrice: entry?.sellingPrice || undefined };
+  const local = locationId ? entry?.locationPrices?.[locationId] : undefined;
+  return {
+    unit,
+    sellingPrice: local || entry?.sellingPrice || undefined,
+    mainName: entry?.itemName,
+    variants: entry?.variants?.length ? entry.variants : undefined
+  };
 }

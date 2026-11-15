@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Order, ShoppingItem } from '@/types/order';
 import { SortableList } from '@/components/SortableList';
+import { ItemMarketRow } from './ItemMarketRow';
 import {
   CATEGORY_LABELS,
   HouseAllocationParams,
@@ -59,6 +60,7 @@ interface ShoppingViewProps {
     orderIdOrHouseNumber: string
   ) => void;
   onMoveItem?: (fromItemId: string, toItemId: string) => void;
+  onUpdateItemCost?: (itemName: string, costPrice: number, shopName?: string, listCost?: number | null) => void;
 }
 
 export function ShoppingView({
@@ -71,7 +73,8 @@ export function ShoppingView({
   existingOrders = [],
   onAllocateItem,
   onRemoveAllocation,
-  onMoveItem
+  onMoveItem,
+  onUpdateItemCost
 }: ShoppingViewProps) {
   const [reorderMode, setReorderMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -676,6 +679,9 @@ export function ShoppingView({
                           <p className="text-[11px] text-slate-400 mt-0.5">
                             {item.allocations?.length ? `${item.allocations.length} บ้าน` : 'ยังไม่ได้แบ่งบ้าน'}
                           </p>
+                          {!item.bought && (
+                            <ItemMarketRow item={item} orders={existingOrders} onUpdateItemCost={onUpdateItemCost} />
+                          )}
                         </div>
                       </div>
 
@@ -755,6 +761,7 @@ export function ShoppingView({
                           </span>
                         )}
                       </div>
+                      <ItemMarketRow item={item} orders={existingOrders} onUpdateItemCost={onUpdateItemCost} />
                     </div>
                   </div>
 

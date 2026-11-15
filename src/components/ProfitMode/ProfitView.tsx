@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { TripPlanner } from './TripPlanner';
 import { MoneySplitBar, ProfitTrendChart, TopItemBars } from './ProfitCharts';
+import { PriceBookExtras } from './PriceBookExtras';
 import { DayOrders } from './DayOrders';
 import {
   Fuel,
@@ -37,6 +38,7 @@ import {
 import {
   DailyProfitSummary,
   calculateDailyProfit,
+  bargainSavings,
   calculateCollectionStats,
   ItemProfitDetail
 } from '@/lib/profit-aggregator';
@@ -132,6 +134,8 @@ export function ProfitView({
     [todayOrders, fuelConfig, manualShoppingItems]
   );
   const collection = useMemo(() => calculateCollectionStats(todayOrders), [todayOrders]);
+  const bargained = useMemo(() => bargainSavings(todayOrders), [todayOrders]);
+  const [extrasId, setExtrasId] = useState<string | null>(null);
   const paymentSegments = [
     { key: 'TRANSFER', label: 'โอน', value: collection.byMethod.TRANSFER, color: 'bg-emerald-500' },
     { key: 'QR_SCAN', label: 'สแกน QR', value: collection.byMethod.QR_SCAN, color: 'bg-sky-500' },
@@ -181,7 +185,7 @@ export function ProfitView({
     const shopClean = editShop.trim() || editingItem.shopName || 'ตลาดสด';
 
     // 1. บันทึกลงใน Price Book เพื่อจดจำไว้ตลอดไป
-    updateCostAndSellingPrice(editingItem.name, costNum, priceNum, shopClean, editingItem.unit);
+    updateCostAndSellingPrice(editingItem.name, costNum, priceNum, editingItem.unit, shopClean);
     setPriceBookEntries(getPriceBook());
 
     // 2. อัปเดตใน state orders
@@ -377,6 +381,9 @@ export function ProfitView({
               cost={isToday ? profitSummary.totalProduceCost : periodAnalytics.totalProduceCost}
               travel={isToday ? profitSummary.totalTransportExpense : periodAnalytics.totalExpenses - periodAnalytics.totalProduceCost}
             />
+            {isToday && bargained > 0 && (
+              <p className="text-xs text-emerald-700">ต่อราคาได้วันนี้ ฿{bargained.toLocaleString()} (รวมในต้นทุนแล้ว)</p>
+            )}
           </div>
         );
       })()}
@@ -839,17 +846,15 @@ export function ProfitView({
             </form>
 
             {/* List of Entries */}
-            <div className="space-y-2 max-h-[40dvh] overflow-y-auto">
+            <div className="space-y-2">
               {filteredPriceBook.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400">
                   ไม่พบรายการในสมุดราคา
                 </div>
               ) : (
                 filteredPriceBook.map(entry => (
-                  <div
-                    key={entry.id}
-                    className="p-3 bg-white rounded-2xl border border-slate-200 flex items-center justify-between gap-2"
-                  >
+                  <div key={entry.id} className="p-3 bg-white rounded-2xl border border-slate-200">
+                  <div className="flex items-center justify-between gap-2">
                     <div>
                       <strong className="text-sm font-bold text-slate-900">{entry.itemName}</strong>
                       <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
@@ -869,6 +874,22 @@ export function ProfitView({
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setExtrasId(extrasId === entry.id ? null : entry.id)}
+                    aria-expanded={extrasId === entry.id}
+                    className="mt-1 text-[11px] text-slate-500 underline"
+                  >
+                    {extrasId === entry.id
+                      ? 'ปิด'
+                      : `หลายร้าน · ชื่ออื่น · ไส้ · ราคาตามที่ · หน่วย${
+                          (entry.shops?.length || 0) > 1 || entry.aliases?.length || entry.variants?.length ? ' ✓' : ''
+                        }`}
+                  </button>
+                  {extrasId === entry.id && (
+                    <PriceBookExtras entry={entry} onChange={() => setPriceBookEntries(getPriceBook())} />
+                  )}
                   </div>
                 ))
               )}

@@ -1,6 +1,6 @@
 import { Order, ShoppingItem } from '@/types/order';
 import { FuelConfig, calculateFuelExpense, FuelCalculationResult } from './fuel-calc';
-import { lookupPriceBook } from './price-book';
+import { canonicalName, lookupPriceBook, toBaseUnit } from './price-book';
 
 export interface ItemProfitDetail {
   name: string;
@@ -39,6 +39,20 @@ export interface DailyProfitSummary {
   itemsBreakdown: ItemProfitDetail[]; // สรุปกำไรรายสินค้า
 }
 
+/** Money saved by bargaining: (price asked − price paid) × quantity, over lines where a bargain was recorded. */
+export function bargainSavings(orders: Order[]): number {
+  let saved = 0;
+  for (const o of orders) {
+    if (o.deliveryStatus === 'CANCELLED') continue;
+    for (const it of o.items) {
+      if (typeof it.listCost !== 'number' || typeof it.costPrice !== 'number') continue;
+      // prices are per main unit (กก.), so 5 ขีด counts as 0.5
+      saved += (it.listCost - it.costPrice) * toBaseUnit(it.name, parseFloat(String(it.quantity)) || 1, it.unit).qty;
+    }
+  }
+  return Math.round(saved);
+}
+
 /**
  * คำนวณสรุปกำไร-ขาดทุนประจำวันอย่างละเอียด
  */
@@ -72,9 +86,11 @@ export function calculateDailyProfit(
 
   for (const order of activeOrders) {
     for (const item of order.items) {
-      const cleanName = item.name.trim();
-      const key = `${cleanName.toLowerCase()}_${(item.unit || '').trim().toLowerCase()}`;
-      const qtyNum = parseFloat(String(item.quantity)) || 1;
+      const cleanName = canonicalName(item.name);
+      // cost is per main unit, so count 5 ขีด as 0.5 กก. when the conversion is known
+      const base = toBaseUnit(cleanName, parseFloat(String(item.quantity)) || 1, item.unit || '');
+      const key = `${cleanName.toLowerCase()}_${base.unit.toLowerCase()}`;
+      const qtyNum = base.qty;
       const remembered = lookupPriceBook(cleanName);
 
       // ต้นทุนต่อหน่วย: ให้ใช้จาก item.costPrice ก่อน ถ้าไม่มีให้ดึงจาก PriceBook
@@ -111,7 +127,7 @@ export function calculateDailyProfit(
           category: cat,
           shopName: shop,
           quantity: qtyNum,
-          unit: item.unit || 'ชิ้น',
+          unit: base.unit || 'ชิ้น',
           costPrice: unitCost,
           totalRevenue: itemLineRevenue,
           orderCount: 1,

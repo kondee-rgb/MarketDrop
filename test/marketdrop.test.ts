@@ -1510,3 +1510,63 @@ describe('25. Merge order photos from the same customer', () => {
     expect(mergeParsedOrders([{}, {}]).length).toBe(2); // nothing to match on → keep apart
   });
 });
+
+describe('26. Price book: shops, aliases, fillings, place prices, unit conversion, bargains', () => {
+  const order = (id: string, items: Partial<import('../src/types/order').OrderItem>[], locationId?: string): Order =>
+    ({
+      id, stopNumber: 1, houseNumber: id, soi: '', locationId, customerName: id, phone: '', totalAmount: 0,
+      paymentStatus: 'COD', collectedAmount: 0, paymentMethod: null, deliveryStatus: 'PENDING', deliveredAt: null,
+      notes: '', createdAt: '', updatedAt: '',
+      items: items.map((it, i) => ({ id: `${id}_${i}`, name: '', quantity: 1, unit: '', ...it }))
+    }) as Order;
+
+  it('resolves aliases/fillings, location price, shop switch, conversions; shopping and profit follow', async () => {
+    const pb = await import('../src/lib/price-book');
+    const { aggregateShoppingList, shoppingIdFor } = await import('../src/lib/shopping-aggregator');
+    const { bargainSavings, calculateDailyProfit } = await import('../src/lib/profit-aggregator');
+    pb.clearPriceBook();
+    const khao = pb.savePriceBookEntry({ itemName: 'ข้าวเหนียวดำ', shopName: 'ป้าศรี', costPrice: 25, sellingPrice: 40, unit: 'ห่อ', category: 'other' });
+    pb.savePriceBookEntry({ itemName: 'ข้าวเหนียวดำ', shopName: 'ร้านแม่มา', costPrice: 22, sellingPrice: 40, unit: 'ห่อ', category: 'other' });
+    const moo = pb.savePriceBookEntry({ itemName: 'หมูบด', shopName: 'เจ๊พร', costPrice: 120, sellingPrice: 180, unit: 'กก.', category: 'meat' });
+    pb.patchPriceBookEntry(khao.id, { variants: ['ไส้กุ้ง', 'ไส้หมู'], locationPrices: { 'the-plant': 45 }, unitConversions: { แพ็ค: 6 } });
+    pb.patchPriceBookEntry(moo.id, { unitConversions: { ขีด: 0.1 } });
+
+    // two shops remembered; picking one sets the cost
+    expect(pb.findEntry('ข้าวเหนียวดำ')!.shops!.map(s => s.name)).toEqual(['ป้าศรี', 'ร้านแม่มา']);
+    expect(pb.selectShop('ข้าวเหนียวดำ', 'ป้าศรี')).toMatchObject({ shopName: 'ป้าศรี', costPrice: 25 });
+
+    // "did you mean" → alias remembered
+    expect(pb.suggestCanonical('ข้าวเหนียวดำกุ้ง')).toBe('ข้าวเหนียวดำ');
+    expect(pb.suggestCanonical('ผักบุ้ง')).toBeNull();
+    pb.addAlias('ข้าวเหนียวดำ', 'ขนมข้าวเหนียว');
+    expect(pb.canonicalName('ขนมข้าวเหนียว · ไส้กุ้ง')).toBe('ข้าวเหนียวดำ · ไส้กุ้ง');
+
+    // filling keeps the price; some places sell higher
+    expect(pb.lookupExactProduct('ข้าวเหนียวดำ · ไส้หมู')).toMatchObject({ unit: 'ห่อ', sellingPrice: 40, variants: ['ไส้กุ้ง', 'ไส้หมู'] });
+    expect(pb.lookupExactProduct('ข้าวเหนียวดำ', 'the-plant')!.sellingPrice).toBe(45);
+    expect(pb.lookupExactProduct('ข้าวเหนียวดำ', 'ivy-river')!.sellingPrice).toBe(40);
+
+    // shopping list: alias + other unit are added together; fillings stay separate lines
+    const orders = [
+      order('a', [{ name: 'หมูบด', quantity: 1, unit: 'กก.' }, { name: 'ข้าวเหนียวดำ · ไส้กุ้ง', quantity: 2, unit: 'ห่อ' }]),
+      order('b', [{ name: 'หมูบด', quantity: 5, unit: 'ขีด' }, { name: 'ขนมข้าวเหนียว · ไส้กุ้ง', quantity: 1, unit: 'แพ็ค' }])
+    ];
+    const list = aggregateShoppingList(orders, [], [shoppingIdFor('หมูบด', 'ขีด')]);
+    expect(list.map(i => `${i.name} ${i.totalQuantity} ${i.unit} ${i.bought}`)).toEqual([
+      'หมูบด 1.5 กก. true',
+      'ข้าวเหนียวดำ · ไส้กุ้ง 8 ห่อ false'
+    ]);
+
+    // bargain: asked 120, paid 110 for 1 kg → saved 10, and profit uses the paid cost
+    orders[0].items[0] = { ...orders[0].items[0], costPrice: 110, listCost: 120 };
+    expect(bargainSavings(orders)).toBe(10);
+    orders[1].items[0] = { ...orders[1].items[0], costPrice: 110, listCost: 120 };
+    expect(bargainSavings(orders)).toBe(15); // + 5 ขีด = 0.5 กก. × ฿10
+    const fuel = { pricePerLiter: 0, kmPerLiter: 1, distanceKm: 0, otherExpenses: 0 } as unknown as import('../src/lib/fuel-calc').FuelConfig;
+    const moo1 = calculateDailyProfit([orders[0]], fuel).itemsBreakdown.find(i => i.name === 'หมูบด')!;
+    expect(moo1.costPrice).toBe(110);
+    const mooB = calculateDailyProfit([orders[1]], fuel).itemsBreakdown.find(i => i.name === 'หมูบด')!;
+    expect([mooB.quantity, mooB.unit, mooB.totalCost]).toEqual([0.5, 'กก.', 55]); // 5 ขีด at the bargained ฿110/กก.
+    pb.clearPriceBook();
+  });
+});

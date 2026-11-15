@@ -30,6 +30,7 @@ import {
   MOCK_ORDER_IDS,
   MOCK_CUSTOMER_NAMES
 } from '@/lib/storage';
+import { canonicalName } from '@/lib/price-book';
 import { sortOrders, reorderOrders } from '@/lib/natural-sort';
 import { syncToGoogleSheets } from '@/lib/sheets';
 
@@ -325,13 +326,20 @@ export default function MarketDropApp() {
   };
 
   // Update cost price and shop for an item across all orders
-  const handleUpdateItemCost = (itemName: string, costPrice: number, shopName?: string) => {
+  // listCost: the asked price when a bargain was recorded (null clears it)
+  const handleUpdateItemCost = (itemName: string, costPrice: number, shopName?: string, listCost?: number | null) => {
+    const target = canonicalName(itemName).toLowerCase();
     setOrders(prev =>
       prev.map(order => ({
         ...order,
         items: order.items.map(it =>
-          it.name.trim().toLowerCase() === itemName.trim().toLowerCase()
-            ? { ...it, costPrice, shopName: shopName || it.shopName }
+          canonicalName(it.name).toLowerCase() === target
+            ? {
+                ...it,
+                costPrice,
+                shopName: shopName || it.shopName,
+                listCost: listCost === null ? undefined : listCost ?? it.listCost
+              }
             : it
         )
       }))
@@ -460,6 +468,7 @@ export default function MarketDropApp() {
             onAllocateItem={handleAllocateItem}
             onRemoveAllocation={handleRemoveAllocation}
             onMoveItem={handleMoveShoppingItem}
+            onUpdateItemCost={handleUpdateItemCost}
           />
         )}
 
@@ -476,6 +485,7 @@ export default function MarketDropApp() {
             sortDirection={sortMode === 'NATURAL_HOUSE' ? sortDirection : undefined}
             onSortByHouse={dir => handleApplySorting('NATURAL_HOUSE', dir)}
             onMoveOrder={handleMoveOrder}
+            boughtShoppingIds={boughtShoppingIds}
           />
         )}
 

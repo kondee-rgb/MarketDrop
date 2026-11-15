@@ -3,7 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Check, UserPlus, Edit3, Star, MapPin, Building } from 'lucide-react';
 import { Order, OrderItem, PaymentStatus } from '@/types/order';
-import { getPriceBook, lookupExactProduct, rememberUnits } from '@/lib/price-book';
+import {
+  addAlias,
+  getPriceBook,
+  lookupExactProduct,
+  rememberUnits,
+  splitVariant,
+  suggestCanonical,
+  VARIANT_SEP
+} from '@/lib/price-book';
 import {
   REAL_LOCATIONS,
   getLocationById,
@@ -99,6 +107,33 @@ export function ManualOrderModal({
       setSelectedContactId('');
     }
   }, [initialOrder, isOpen]);
+
+  // line price from the price book (location price first)
+  const priceLine = (item: OrderItem, loc: string, fillUnit: boolean): OrderItem => {
+    const known = lookupExactProduct(String(item.name), loc || undefined);
+    if (!known) return item;
+    let out = item;
+    if (known.unit && (fillUnit || !item.unit)) out = { ...out, unit: known.unit };
+    const qty = parseFloat(String(item.quantity)) || 1;
+    if (known.sellingPrice) out = { ...out, price: Math.round(known.sellingPrice * qty * 100) / 100 };
+    return out;
+  };
+
+  const withTotal = (next: OrderItem[]) => {
+    // total follows the item prices until the user types a total themselves
+    if (!totalTouched) {
+      const sum = next.reduce((t, it) => t + (typeof it.price === 'number' ? it.price : 0), 0);
+      if (sum > 0) setTotalAmount(sum);
+    }
+    return next;
+  };
+
+  // some menus sell at a different price in some places
+  useEffect(() => {
+    if (!isOpen || initialOrder) return; // editing a saved order: keep its prices
+    setItems(prev => (prev.some(it => it.name.trim()) ? withTotal(prev.map(it => priceLine(it, locationId, false))) : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationId]);
 
   if (!isOpen) return null;
 
@@ -213,24 +248,12 @@ export function ManualOrderModal({
   const handleUpdateItem = (idx: number, field: keyof OrderItem, val: string | number) => {
     setItems(prev => {
       const next = [...prev];
-      let item = { ...next[idx], [field]: val };
-      if (field === 'name' || field === 'quantity') {
-        const known = lookupExactProduct(String(item.name));
-        if (known) {
-          if (known.unit && (field === 'name' || !item.unit)) item = { ...item, unit: known.unit };
-          const qty = parseFloat(String(item.quantity)) || 1;
-          if (known.sellingPrice) item = { ...item, price: Math.round(known.sellingPrice * qty * 100) / 100 };
-        }
-      }
-      next[idx] = item;
-      // total follows the item prices until the user types a total themselves
-      if (!totalTouched) {
-        const sum = next.reduce((t, it) => t + (typeof it.price === 'number' ? it.price : 0), 0);
-        if (sum > 0) setTotalAmount(sum);
-      }
-      return next;
+      const item = { ...next[idx], [field]: val };
+      next[idx] = field === 'name' || field === 'quantity' ? priceLine(item, locationId, field === 'name') : item;
+      return withTotal(next);
     });
   };
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -544,10 +567,8 @@ export function ManualOrderModal({
             </datalist>
             <div className="space-y-2">
               {items.map((item, idx) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl"
-                >
+                <div key={item.id} className="bg-slate-50 p-2 rounded-2xl space-y-1.5">
+                <div className="flex items-center gap-2">
                   <input
                     type="text"
                     value={item.name}
@@ -580,6 +601,8 @@ export function ManualOrderModal({
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
+                </div>
+                <ItemHints name={item.name} onName={name => handleUpdateItem(idx, 'name', name)} />
                 </div>
               ))}
             </div>
@@ -663,5 +686,43 @@ export function ManualOrderModal({
         </form>
       </div>
     </div>
+  );
+}
+
+/** Under an item: filling buttons for menus that have them, or "did you mean …?" for an unknown name. */
+function ItemHints({ name, onName }: { name: string; onName: (name: string) => void }) {
+  if (!name.trim()) return null;
+  const { base, variant } = splitVariant(name);
+  const known = lookupExactProduct(base);
+  if (known?.variants) {
+    return (
+      <div className="flex flex-wrap gap-1">
+        {known.variants.map(v => (
+          <button
+            key={v}
+            type="button"
+            aria-pressed={variant === v}
+            onClick={() => onName(variant === v ? base : `${base}${VARIANT_SEP}${v}`)}
+            className={`px-2.5 py-1 rounded-lg text-[11px] ${variant === v ? 'bg-slate-900 text-white' : 'bg-white ring-1 ring-slate-200 text-slate-700'}`}
+          >
+            {v}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  const guess = known ? null : suggestCanonical(name);
+  if (!guess) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        addAlias(guess, name); // remember: next time this name means the same menu
+        onName(guess);
+      }}
+      className="text-[11px] text-emerald-700 underline"
+    >
+      ใช่ “{guess}” ไหม? แตะเพื่อใช้ชื่อนี้ (จำไว้ครั้งหน้า)
+    </button>
   );
 }
