@@ -1570,3 +1570,32 @@ describe('26. Price book: shops, aliases, fillings, place prices, unit conversio
     pb.clearPriceBook();
   });
 });
+
+describe('27. Backup file', () => {
+  it('saves only app keys and restores them, replacing what was there', async () => {
+    const { buildBackup, parseBackup, restoreBackup } = await import('../src/lib/backup');
+    const fake = (init: Record<string, string>) => {
+      const m = new Map(Object.entries(init));
+      return {
+        get length() { return m.size; },
+        key: (i: number) => Array.from(m.keys())[i] ?? null,
+        getItem: (k: string) => m.get(k) ?? null,
+        setItem: (k: string, v: string) => void m.set(k, v),
+        removeItem: (k: string) => void m.delete(k),
+        m
+      };
+    };
+    const phoneA = fake({ marketdrop_orders_v4: '[1]', marketdrop_price_book_v1: '[2]', other_site: 'x' });
+    const file = JSON.stringify(buildBackup(phoneA));
+    expect(Object.keys(JSON.parse(file).data)).toEqual(['marketdrop_orders_v4', 'marketdrop_price_book_v1']);
+
+    const phoneB = fake({ marketdrop_orders_v4: '[old]', marketdrop_trip_v1: '{}', other_site: 'y' });
+    const parsed = parseBackup(file);
+    if (typeof parsed === 'string') throw new Error(parsed);
+    expect(restoreBackup(parsed, phoneB)).toBe(2);
+    expect(Object.fromEntries(phoneB.m)).toEqual({ other_site: 'y', marketdrop_orders_v4: '[1]', marketdrop_price_book_v1: '[2]' });
+
+    expect(typeof parseBackup('not json')).toBe('string');
+    expect(typeof parseBackup(JSON.stringify({ app: 'MarketDrop', data: { evil_key: 'x' } }))).toBe('string');
+  });
+});

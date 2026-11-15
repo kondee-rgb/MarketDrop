@@ -16,6 +16,7 @@ import { Order, SortDirection, SortMode } from '@/types/order';
 import { OrderCardAdmin } from './OrderCardAdmin';
 import { LinePasteModal } from './LinePasteModal';
 import { ManualOrderModal } from './ManualOrderModal';
+import { BackupCard } from './BackupCard';
 import { groupOrdersBySoi, reorderOrders } from '@/lib/natural-sort';
 import { exportOrdersToCsv } from '@/lib/sheets';
 
@@ -325,6 +326,8 @@ export function OrderManagerView({
       )}
 
       {/* Modals */}
+      <BackupCard />
+
       <LinePasteModal
         isOpen={isPasteModalOpen}
         onClose={() => setIsPasteModalOpen(false)}
