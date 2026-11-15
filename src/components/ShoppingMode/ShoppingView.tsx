@@ -8,7 +8,6 @@ import {
   Plus,
   Trash2,
   CheckCircle2,
-  Camera,
   Search,
   ArrowRight,
   X,
@@ -66,9 +65,7 @@ interface ShoppingViewProps {
 export function ShoppingView({
   items,
   onToggleBought,
-  onAddManualItem,
   onRemoveManualItem,
-  onOpenPhotoModal,
   onSwitchToDelivery,
   existingOrders = [],
   onAllocateItem,
@@ -79,14 +76,9 @@ export function ShoppingView({
   const [reorderMode, setReorderMode] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAddForm, setShowAddForm] = useState(false);
   const [shoppingLayout, setShoppingLayout] = useState<'stall' | 'list'>('stall');
 
   // Quick manual item input form
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemQty, setNewItemQty] = useState('1');
-  const [newItemUnit, setNewItemUnit] = useState('กก.');
-  const [newItemCategory, setNewItemCategory] = useState<ShoppingItem['category']>('veg');
 
   // Allocation Modal State (Grab style item sheet: "ส่งให้ใคร ที่ไหน")
   const [allocatingItem, setAllocatingItem] = useState<ShoppingItem | null>(null);
@@ -133,19 +125,6 @@ export function ShoppingView({
   const completedItems = filteredItems.filter(it => it.bought);
   const stallGroups = groupShoppingItemsByShop(filteredItems);
 
-  const handleCreateManualItem = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newItemName.trim()) return;
-    onAddManualItem(
-      newItemName.trim(),
-      newItemQty.trim() || '1',
-      newItemUnit.trim() || 'กก.',
-      newItemCategory
-    );
-    setNewItemName('');
-    setNewItemQty('1');
-    setShowAddForm(false);
-  };
 
   // Open item detail / allocation modal
   const handleOpenItemSheet = (item: ShoppingItem) => {
@@ -362,14 +341,6 @@ export function ShoppingView({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onOpenPhotoModal}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all"
-          >
-            <Camera className="w-3.5 h-3.5 text-emerald-600" />
-            <span>ถ่ายโพยซื้อ</span>
-          </button>
         </div>
 
         {/* Progress Bar */}
@@ -404,17 +375,6 @@ export function ShoppingView({
           )}
         </div>
 
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs sm:text-sm font-bold shadow-xs transition-all whitespace-nowrap active:scale-95 ${
-            showAddForm
-              ? 'bg-slate-200 text-slate-800'
-              : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          <span>เพิ่มของ</span>
-        </button>
       </div>
 
       {/* Grab-style Horizontal Category Chips */}
@@ -491,78 +451,6 @@ export function ShoppingView({
       </div>
 
       {/* Quick Add Form Drawer */}
-      {showAddForm && (
-        <form
-          onSubmit={handleCreateManualItem}
-          className="bg-emerald-50/50 rounded-2xl p-3.5 space-y-3 animate-in fade-in duration-200 shadow-xs"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-xs text-emerald-950 flex items-center gap-1">
-              <Plus className="w-3.5 h-3.5 text-emerald-700" /> เพิ่มรายการของสดด่วน
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowAddForm(false)}
-              className="p-1 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <input
-              type="text"
-              required
-              value={newItemName}
-              onChange={e => setNewItemName(e.target.value)}
-              placeholder="ชื่อของสด เช่น ผักกาดหอม, หมูบด"
-              className="flex-1 min-w-[140px] px-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-            <input
-              type="text"
-              value={newItemQty}
-              onChange={e => setNewItemQty(e.target.value)}
-              placeholder="จำนวน"
-              className="w-16 px-2 py-1.5 text-xs rounded-xl border border-slate-300 bg-white text-center font-bold"
-            />
-            <input
-              type="text"
-              value={newItemUnit}
-              onChange={e => setNewItemUnit(e.target.value)}
-              placeholder="หน่วย"
-              className="w-16 px-2 py-1.5 text-xs rounded-xl border border-slate-300 bg-white text-center"
-            />
-            <select
-              value={newItemCategory}
-              onChange={e => setNewItemCategory(e.target.value as ShoppingItem['category'])}
-              className="px-2 py-1.5 text-xs rounded-xl border border-slate-300 bg-white"
-            >
-              <option value="meat">🥩 เนื้อสัตว์</option>
-              <option value="veg">🥬 ผักสด</option>
-              <option value="egg_dairy">🥚 ไข่/นม</option>
-              <option value="spice">🌶️ เครื่องเทศ</option>
-              <option value="dry">🥫 ของแห้ง</option>
-              <option value="other">📦 อื่นๆ</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={() => setShowAddForm(false)}
-              className="px-3 py-1 text-xs text-slate-600 rounded-lg hover:bg-slate-100 font-semibold"
-            >
-              ยกเลิก
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-emerald-700"
-            >
-              เพิ่มเข้ารายการซื้อ
-            </button>
-          </div>
-        </form>
-      )}
 
       {/* Products List: Stall-by-Stall or Flat List */}
       {reorderMode && onMoveItem ? (
@@ -590,14 +478,14 @@ export function ShoppingView({
           </div>
           <h3 className="font-bold text-slate-800">ยังไม่มีรายการของที่ต้องซื้อ</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            เมื่อมีออเดอร์เข้ามาในระบบ หรือเมื่อคุณถ่ายรูปโพยตลาด รายการของสดจะถูกรวบรวมมาไว้ที่นี่อัตโนมัติ
+            ของที่ต้องซื้อมาจากออเดอร์ที่ยังไม่ได้ส่งในหน้า “ที่ต้องส่ง” เท่านั้น — เพิ่มออเดอร์ที่นั่น แล้วรายการจะขึ้นที่นี่แยกตามร้าน
           </p>
           <button
             type="button"
-            onClick={onOpenPhotoModal}
+            onClick={onSwitchToDelivery}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 shadow-xs"
           >
-            <Camera className="w-4 h-4" /> ถ่ายรูปโพยตลาดเลย
+            ไปหน้าที่ต้องส่ง
           </button>
         </div>
       ) : shoppingLayout === 'stall' ? (
@@ -676,9 +564,7 @@ export function ShoppingView({
                           >
                             {item.name}
                           </h4>
-                          <p className="text-[11px] text-slate-400 mt-0.5">
-                            {item.allocations?.length ? `${item.allocations.length} บ้าน` : 'ยังไม่ได้แบ่งบ้าน'}
-                          </p>
+                          <OrderedBy item={item} />
                           {!item.bought && (
                             <ItemMarketRow item={item} orders={existingOrders} onUpdateItemCost={onUpdateItemCost} />
                           )}
@@ -1356,5 +1242,20 @@ export function ShoppingView({
         </div>
       )}
     </div>
+  );
+}
+
+/** Who ordered this item: house no. + name + amount, one line each. */
+function OrderedBy({ item }: { item: ShoppingItem }) {
+  if (!item.allocations?.length) return null;
+  return (
+    <ul className="mt-0.5 space-y-0.5">
+      {item.allocations.map((a, i) => (
+        <li key={`${a.orderId}_${i}`} className="text-[11px] text-slate-500 leading-snug">
+          <span className="font-semibold text-slate-700 tabular-nums">{a.houseNumber}</span> {a.customerName} ×{a.quantity}{' '}
+          {a.unit}
+        </li>
+      ))}
+    </ul>
   );
 }

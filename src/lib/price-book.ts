@@ -350,3 +350,31 @@ export function lookupExactProduct(
     variants: entry?.variants?.length ? entry.variants : undefined
   };
 }
+
+/* ---------- One-time repair: shop and unit were saved swapped by an old profit-page bug ---------- */
+
+const UNIT_WORDS = new Set([
+  'กก', 'กิโล', 'กิโลกรัม', 'โล', 'กรัม', 'ขีด', 'กำ', 'แผง', 'ถุง', 'ขวด', 'แพ็ค', 'แพค', 'ชิ้น', 'ฟอง', 'มัด',
+  'ลูก', 'หัว', 'กล่อง', 'กระป๋อง', 'ถาด', 'ตัว', 'หวี', 'พวง', 'ต้น', 'จาน', 'ก้อน', 'อัน', 'ชุด', 'ห่อ', 'ไม้',
+  'หน้า', 'ถ้วย', 'แก้ว', 'กระปุก', 'ชาม', 'คู่', 'ใบ'
+]);
+const bare = (s: string) => (s || '').trim().replace(/\.+$/, '');
+const unitLike = (s: string) => UNIT_WORDS.has(bare(s)) || [...bare(s)].length <= 4;
+
+/** Swap shop/unit back where the unit field holds a shop name (e.g. unit "วัดเศวต", shop "ชิ้น"). */
+export function repairSwappedShopUnit(): number {
+  let fixed = 0;
+  const list = getPriceBook().map(e => {
+    const shop = (e.shopName || '').trim();
+    if (!e.unit || unitLike(e.unit) || !shop || shop === 'ตลาดสด' || !unitLike(shop)) return e;
+    fixed++;
+    return {
+      ...e,
+      shopName: e.unit.trim(),
+      unit: shop,
+      shops: (e.shops || []).filter(sp => !unitLike(sp.name))
+    };
+  });
+  if (fixed) writeBook(list);
+  return fixed;
+}

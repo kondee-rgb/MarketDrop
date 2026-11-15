@@ -30,7 +30,7 @@ import {
   MOCK_ORDER_IDS,
   MOCK_CUSTOMER_NAMES
 } from '@/lib/storage';
-import { canonicalName } from '@/lib/price-book';
+import { canonicalName, repairSwappedShopUnit } from '@/lib/price-book';
 import { applyOrderChanges } from '@/lib/cloud-sync';
 import { useCloudSync } from '@/lib/use-cloud-sync';
 import { sortOrders, reorderOrders } from '@/lib/natural-sort';
@@ -95,6 +95,7 @@ export default function MarketDropApp() {
     const sorted = sortOrders(cleanOrders, savedMode, savedDir);
     setOrders(sorted);
     setSheetsConfig(loadSheetsConfig());
+    repairSwappedShopUnit(); // fix price-book rows saved with shop and unit swapped
 
     const shopState = loadShoppingState();
     setBoughtShoppingIds(shopState.boughtItemIds || []);
@@ -126,6 +127,7 @@ export default function MarketDropApp() {
     isMounted,
     ch => setOrders(prev => sortOrders(applyOrderChanges(prev, ch), sortMode, sortDirection)),
     () => {
+      repairSwappedShopUnit(); // a phone still on the old version may send the swapped rows back
       const shop = loadShoppingState();
       setBoughtShoppingIds(shop.boughtItemIds || []);
       setManualShoppingItems(shop.manualItems || []);
@@ -164,8 +166,9 @@ export default function MarketDropApp() {
 
   // Consolidated Shopping List (Aggregated from active orders + manual items)
   const consolidatedShoppingItems = useMemo(() => {
-    return applyItemOrder(aggregateShoppingList(orders, manualShoppingItems, boughtShoppingIds), shoppingItemOrder);
-  }, [orders, manualShoppingItems, boughtShoppingIds, shoppingItemOrder]);
+    // only what was ordered on the delivery tab (hand-added shopping items are no longer shown)
+    return applyItemOrder(aggregateShoppingList(orders, [], boughtShoppingIds), shoppingItemOrder);
+  }, [orders, boughtShoppingIds, shoppingItemOrder]);
 
   // Cloud Sync Handler
   const performSync = useCallback(

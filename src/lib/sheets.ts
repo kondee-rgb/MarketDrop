@@ -1,5 +1,5 @@
 import { Order } from '@/types/order';
-import { FuelConfig, calculateFuelExpense, getFuelConfig } from './fuel-calc';
+import { FuelConfig, calculateFuelExpense, fuelForDay, getFuelConfig } from './fuel-calc';
 import { lookupPriceBook } from './price-book';
 import { getLocationById } from './locations';
 import { toLocalDateStr } from './historical-profit';
@@ -187,10 +187,11 @@ export function buildSheetsPayload(orders: Order[], fuelConfig: FuelConfig, toda
     };
   });
 
-  const fuel = calculateFuelExpense(fuelConfig);
+  const dayCfg = fuelForDay(fuelConfig, today); // travel from another day isn't today's expense
+  const fuel = calculateFuelExpense(dayCfg);
   const expenses =
-    fuelConfig.distanceKm > 0 || fuel.otherExpenses > 0
-      ? [{ date: today, fuel: fuel.fuelCost, other: fuel.otherExpenses, km: fuelConfig.distanceKm }]
+    dayCfg.distanceKm > 0 || fuel.otherExpenses > 0
+      ? [{ date: today, fuel: fuel.fuelCost, other: fuel.otherExpenses, km: dayCfg.distanceKm }]
       : [];
 
   return { action: 'UPSERT_ORDERS', version: 2, orders: rows, expenses };

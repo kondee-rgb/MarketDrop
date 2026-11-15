@@ -246,6 +246,8 @@ describe('4. Market Shopping Aggregator & Category Detection Tests', () => {
   it('should detect category for Thai fresh market goods', async () => {
     const { detectCategory } = await import('../src/lib/shopping-aggregator');
     expect(detectCategory('หมูบดอนามัย')).toBe('meat');
+    expect(['ขนมต้ม', 'ขนมเบื้องญวน', 'ข้าวเหนียวเหลืองหน้ากุ้ง', 'เฉาก๊วย'].map(detectCategory)).toEqual(['other', 'other', 'other', 'other']);
+    expect(detectCategory('นมสด')).toBe('egg_dairy');
     expect(detectCategory('สันคอหมู')).toBe('meat');
     expect(detectCategory('อกไก่สด')).toBe('meat');
     expect(detectCategory('ปลากะพง')).toBe('meat');
@@ -1031,27 +1033,17 @@ describe('16. Store/Stall-based Shopping Consolidation Tests', () => {
       }
     ];
 
-    const stallGroups = groupShoppingItemsByShop(sampleItems);
-    expect(stallGroups.length).toBe(2);
-
-    // Meat stall has 1 unbought item -> isCompleted: false
-    const meatStall = stallGroups.find(g => g.category === 'meat');
-    expect(meatStall).toBeDefined();
-    expect(meatStall?.items.length).toBe(2);
-    expect(meatStall?.totalItemsCount).toBe(2);
-    expect(meatStall?.boughtItemsCount).toBe(1);
-    expect(meatStall?.isCompleted).toBe(false);
-
-    // Veg stall has all items bought -> isCompleted: true
-    const vegStall = stallGroups.find(g => g.category === 'veg');
-    expect(vegStall).toBeDefined();
-    expect(vegStall?.items.length).toBe(2);
-    expect(vegStall?.boughtItemsCount).toBe(2);
-    expect(vegStall?.isCompleted).toBe(true);
-
-    // Verify incomplete stalls sort before completed stalls
-    expect(stallGroups[0].isCompleted).toBe(false);
-    expect(stallGroups[1].isCompleted).toBe(true);
+    // shop from the order lines; no shop → one "not set" group after the real shops; finished shops last
+    sampleItems[0].shopName = 'เขียงหมูเจ๊พร';
+    sampleItems[1].shopName = 'เขียงหมูเจ๊พร';
+    const stallGroups = groupShoppingItemsByShop(sampleItems, () => null);
+    expect(stallGroups.map(g => [g.cleanShopName, g.boughtItemsCount, g.totalItemsCount, g.isCompleted])).toEqual([
+      ['เขียงหมูเจ๊พร', 1, 2, false],
+      ['ยังไม่ระบุร้าน', 2, 2, true]
+    ]);
+    // price book shop is used when the order line has none (exact name only)
+    const withBook = groupShoppingItemsByShop(sampleItems.slice(2), n => (n === 'กวางตุ้ง' ? { shopName: 'แผงผักป้าแต๋ว' } : null));
+    expect(withBook.map(g => g.cleanShopName)).toEqual(['แผงผักป้าแต๋ว', 'ยังไม่ระบุร้าน']);
   });
 });
 
@@ -1352,7 +1344,7 @@ describe('20. Google Sheets v2 (history upsert + summaries)', () => {
         { ...base, id: 'part', houseNumber: '51/2', totalAmount: 300, paymentStatus: 'COD', collectedAmount: 100, paymentMethod: 'UNPAID', deliveryStatus: 'DELIVERED', partialReason: 'โอนเย็นนี้' },
         { ...base, id: 'pre', houseNumber: '51/3', totalAmount: 300, paymentStatus: 'PAID', collectedAmount: 0, paymentMethod: null, deliveryStatus: 'PENDING' }
       ] as Order[],
-      { distanceKm: 14, consumptionKmPerLiter: 14, fuelPricePerLiter: 40, otherExpenses: 20 },
+      { distanceKm: 14, consumptionKmPerLiter: 14, fuelPricePerLiter: 40, otherExpenses: 20, tripDate: '2026-11-15' },
       '2026-11-15'
     );
     expect(p.orders.map(o => [o.id, o.date, o.paid, o.due, o.cost, o.profit])).toEqual([
@@ -1726,5 +1718,76 @@ describe('29. Paste parser regressions', () => {
     expect([o.locationId, o.building]).toEqual(['ivy-river', 'ตึก A']);
     const [a, b] = parseBulkOrderText('บ้าน 51/3 คุณวิภา\nหมูบด 1 กก.\n---\nบ้าน 79/5 พี่นก\nไข่ไก่ 1 แผง');
     expect([a.locationId, b.locationId, b.building, b.customerName]).toEqual(['ivy-river', 'the-plant', 'ทาวน์โฮม', 'พี่นก']);
+  });
+});
+
+describe('30. Per-day travel, shopping only from orders to deliver, price-book repair', () => {
+  it('travel entered on another day is 0 today; the sheet gets no travel row for it', async () => {
+    const { fuelForDay, calculateFuelExpense } = await import('../src/lib/fuel-calc');
+    const { buildSheetsPayload } = await import('../src/lib/sheets');
+    const cfg = { distanceKm: 102.3, consumptionKmPerLiter: 10, fuelPricePerLiter: 30.56, otherExpenses: 20, tripDate: '2026-11-15' };
+    expect(calculateFuelExpense(fuelForDay(cfg, '2026-11-15')).fuelCost).toBe(313);
+    expect(fuelForDay(cfg, '2026-11-16')).toMatchObject({ distanceKm: 0, otherExpenses: 0, fuelPricePerLiter: 30.56 });
+    expect(fuelForDay({ ...cfg, tripDate: undefined }, '2026-11-16').distanceKm).toBe(0); // old saved config
+    expect(buildSheetsPayload([], cfg, '2026-11-16').expenses).toEqual([]);
+  });
+
+  it('a new day starts the trip with no stops but keeps the start place', async () => {
+    const trip = await import('../src/lib/trip');
+    const store = new Map<string, string>();
+    (globalThis as unknown as { localStorage: Storage }).localStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k)
+    } as Storage;
+    (globalThis as unknown as { window: object }).window = globalThis;
+    try {
+      trip.saveTrip({ startId: 'home2', stopIds: ['a', 'b'], roundTrip: true, date: '2026-11-15' });
+      expect(trip.loadTrip('2026-11-15').stopIds).toEqual(['a', 'b']);
+      expect(trip.loadTrip('2026-11-16')).toMatchObject({ startId: 'home2', stopIds: [], roundTrip: true, date: '2026-11-16' });
+    } finally {
+      delete (globalThis as unknown as { window?: object }).window;
+      delete (globalThis as unknown as { localStorage?: Storage }).localStorage;
+    }
+  });
+
+  it('shopping list skips delivered orders, joins "ชิ้น."/"ชิ้น", carries the order shop', async () => {
+    const { aggregateShoppingList, groupShoppingItemsByShop } = await import('../src/lib/shopping-aggregator');
+    const mk = (id: string, status: Order['deliveryStatus'], items: Partial<import('../src/types/order').OrderItem>[]) =>
+      ({
+        id, stopNumber: 1, houseNumber: id, soi: '', customerName: `ลูกค้า${id}`, phone: '', totalAmount: 0, paymentStatus: 'COD',
+        collectedAmount: 0, paymentMethod: null, deliveryStatus: status, deliveredAt: null, notes: '', createdAt: '', updatedAt: '',
+        items: items.map((it, i) => ({ id: `${id}${i}`, name: '', quantity: 1, unit: '', ...it }))
+      }) as Order;
+    const list = aggregateShoppingList([
+      mk('1/1', 'DELIVERED', [{ name: 'ขนมต้ม', quantity: 5, unit: 'ชิ้น' }]),
+      mk('2/2', 'PENDING', [{ name: 'เต้าส่วน', quantity: 1, unit: 'ชิ้น.', shopName: 'ร้านขนมหวานตลาดบางปะกอก' }]),
+      mk('3/3', 'PENDING', [{ name: 'เต้าส่วน', quantity: 2, unit: 'ชิ้น' }, { name: 'กุยช่าย', quantity: 1, unit: 'กล่อง' }])
+    ]);
+    expect(list.map(i => `${i.name} ${i.totalQuantity} ${i.unit} ${i.shopName ?? '-'} ${i.allocations.map(a => a.customerName).join('+')}`)).toEqual([
+      'เต้าส่วน 3 ชิ้น ร้านขนมหวานตลาดบางปะกอก ลูกค้า2/2+ลูกค้า3/3',
+      'กุยช่าย 1 กล่อง - ลูกค้า3/3'
+    ]);
+    expect(groupShoppingItemsByShop(list, () => null).map(g => g.cleanShopName)).toEqual(['ร้านขนมหวานตลาดบางปะกอก', 'ยังไม่ระบุร้าน']);
+  });
+
+  it('repairs price-book rows saved with shop and unit swapped, leaves correct rows alone', async () => {
+    const pb = await import('../src/lib/price-book');
+    pb.clearPriceBook();
+    pb.savePriceBookEntry({ itemName: 'ขนมต้ม', shopName: 'อัน', unit: 'ร้านขนมหวานตลาดบางปะกอก', costPrice: 5, sellingPrice: 10, category: 'other' });
+    pb.savePriceBookEntry({ itemName: 'หมูสะเต๊ะ', shopName: 'ชุด.', unit: 'คลองเตย', costPrice: 50, sellingPrice: 80, category: 'other' });
+    pb.savePriceBookEntry({ itemName: 'ขนมเบื้องญวน', shopName: 'กล่อง', unit: 'วัดเศวต', costPrice: 40, sellingPrice: 60, category: 'other' });
+    pb.savePriceBookEntry({ itemName: 'น้ำเฉาก๊วย', shopName: 'วัดเสวต', unit: 'ขวด', costPrice: 10, sellingPrice: 20, category: 'other' });
+    pb.savePriceBookEntry({ itemName: 'กุยช่ายลูกใหญ่', shopName: 'วัดเศวต', unit: 'กก.', costPrice: 10, sellingPrice: 20, category: 'other' });
+    expect(pb.repairSwappedShopUnit()).toBe(3);
+    expect(pb.getPriceBook().map(e => `${e.itemName}|${e.shopName}|${e.unit}`)).toEqual([
+      'ขนมต้ม|ร้านขนมหวานตลาดบางปะกอก|อัน',
+      'หมูสะเต๊ะ|คลองเตย|ชุด.',
+      'ขนมเบื้องญวน|วัดเศวต|กล่อง',
+      'น้ำเฉาก๊วย|วัดเสวต|ขวด',
+      'กุยช่ายลูกใหญ่|วัดเศวต|กก.'
+    ]);
+    expect(pb.repairSwappedShopUnit()).toBe(0); // running again changes nothing
+    pb.clearPriceBook();
   });
 });

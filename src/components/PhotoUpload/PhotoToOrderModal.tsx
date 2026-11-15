@@ -10,8 +10,6 @@ import {
   Trash2,
   Check,
   AlertCircle,
-  Truck,
-  ShoppingCart,
   RotateCcw,
   Star,
   MapPin,
@@ -51,7 +49,8 @@ export function PhotoToOrderModal({
   existingOrdersCount
 }: PhotoToOrderModalProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [targetType, setTargetType] = useState<'delivery' | 'shopping'>('delivery');
+  // photos always become delivery orders; the shopping list is built from those orders
+  const targetType = 'delivery' as 'delivery' | 'shopping';
   const [queue, setQueue] = useState<ParsedPhotoOrder[]>([]);
   const [batchInfo, setBatchInfo] = useState<{ photos: number; orders: number; index: number; failed: number } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -477,34 +476,6 @@ export function PhotoToOrderModal({
 
         {/* Modal Body */}
         <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
-          {/* Target Mode Switcher */}
-          <div className="bg-slate-100/80 p-1.5 rounded-2xl flex gap-1.5 border border-slate-200/80">
-            <button
-              type="button"
-              onClick={() => setTargetType('delivery')}
-              className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
-                targetType === 'delivery'
-                  ? 'bg-white text-emerald-800 shadow-xs border border-emerald-200'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              <Truck className="w-4 h-4 text-emerald-600" />
-              <span>🛵 บันทึกเป็น &ldquo;บ้านที่ต้องส่ง&rdquo;</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTargetType('shopping')}
-              className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all ${
-                targetType === 'shopping'
-                  ? 'bg-white text-emerald-800 shadow-xs border border-emerald-200'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              <ShoppingCart className="w-4 h-4 text-teal-600" />
-              <span>🛒 บันทึกเป็น &ldquo;ของที่ต้องซื้อ&rdquo;</span>
-            </button>
-          </div>
-
           {/* Photo Capture / Select Buttons */}
           {!selectedImage ? (
             <div className="border-2 border-dashed border-emerald-200/80 hover:border-emerald-400 rounded-3xl p-6 sm:p-8 text-center bg-emerald-50/20 space-y-4 transition-colors">

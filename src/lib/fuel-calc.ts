@@ -4,6 +4,12 @@ export interface FuelConfig {
   fuelPricePerLiter: number; // ราคาน้ำมัน (บาทต่อลิตร เช่น 38.50)
   otherExpenses: number; // ค่าใช้จ่ายอื่นๆ (ค่าทางด่วน, ค่าจอดรถ, ถุงพลาสติก ฯลฯ)
   otherExpenseNotes?: string; // หมายเหตุค่าใช้จ่ายอื่นๆ
+  tripDate?: string; // YYYY-MM-DD the distance / other expenses belong to
+}
+
+/** Distance and tolls count only on the day they were entered; a new day starts at 0. */
+export function fuelForDay(cfg: FuelConfig, day: string): FuelConfig {
+  return cfg.tripDate === day ? cfg : { ...cfg, distanceKm: 0, otherExpenses: 0 };
 }
 
 export interface FuelCalculationResult {
@@ -55,7 +61,8 @@ export function saveFuelConfig(config: FuelConfig): void {
     consumptionKmPerLiter: Math.max(0.1, Number(config.consumptionKmPerLiter) || DEFAULT_FUEL_CONFIG.consumptionKmPerLiter),
     fuelPricePerLiter: Math.max(0, Number(config.fuelPricePerLiter) || 0),
     otherExpenses: Math.max(0, Number(config.otherExpenses) || 0),
-    otherExpenseNotes: config.otherExpenseNotes || ''
+    otherExpenseNotes: config.otherExpenseNotes || '',
+    ...(config.tripDate ? { tripDate: config.tripDate } : {})
   };
 
   if (typeof window !== 'undefined') {

@@ -80,6 +80,7 @@ export interface ShoppingItem {
   allocations: ShoppingAllocation[];
   sourceNote?: string;
   imageUrl?: string;
+  shopName?: string; // shop set on the order lines (delivery tab / shopping sheet)
 }
 
 export interface GoogleSheetsConfig {

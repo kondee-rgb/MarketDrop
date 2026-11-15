@@ -4,6 +4,7 @@
  * when both places have coordinates → else 0 until the user types it once.
  */
 import { REAL_LOCATIONS } from './locations';
+import { toLocalDateStr } from './historical-profit';
 
 export interface Place {
   id: string;
@@ -16,6 +17,7 @@ export interface TripPlan {
   startId: string;
   stopIds: string[];
   roundTrip: boolean;
+  date?: string; // YYYY-MM-DD; stops are for that day only
 }
 
 export type LegSource = 'saved' | 'estimate' | 'missing';
@@ -140,8 +142,12 @@ function save(key: string, value: unknown): void {
 
 export const loadPlaces = () => load<Place[]>(PLACES_KEY, DEFAULT_PLACES);
 export const savePlaces = (p: Place[]) => save(PLACES_KEY, p);
-export const loadTrip = () => ({ ...DEFAULT_TRIP, ...load<Partial<TripPlan>>(TRIP_KEY, {}) });
-export const saveTrip = (t: TripPlan) => save(TRIP_KEY, t);
+/** Today's trip. A new day keeps the start place and round-trip choice but starts with no stops. */
+export function loadTrip(today: string = toLocalDateStr()): TripPlan {
+  const saved = { ...DEFAULT_TRIP, ...load<Partial<TripPlan>>(TRIP_KEY, {}) };
+  return saved.date === today ? saved : { ...saved, stopIds: [], date: today };
+}
+export const saveTrip = (t: TripPlan) => save(TRIP_KEY, { ...t, date: t.date || toLocalDateStr() });
 export const loadLegMemory = () => load<LegMemory>(LEG_MEMORY_KEY, {});
 export const saveLegMemory = (m: LegMemory) => save(LEG_MEMORY_KEY, m);
 

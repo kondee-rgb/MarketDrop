@@ -27,7 +27,7 @@ import {
   Trophy
 } from 'lucide-react';
 import { Order, ShoppingItem, GoogleSheetsConfig } from '@/types/order';
-import { FuelConfig, getFuelConfig, saveFuelConfig } from '@/lib/fuel-calc';
+import { FuelConfig, fuelForDay, getFuelConfig, saveFuelConfig } from '@/lib/fuel-calc';
 import {
   PriceBookEntry,
   getPriceBook,
@@ -71,6 +71,8 @@ export function ProfitView({
 }: ProfitViewProps) {
   // Fuel config state
   const [fuelConfig, setFuelConfig] = useState<FuelConfig>(getFuelConfig());
+  // distance / tolls entered on another day don't count today
+  const dayFuel = useMemo(() => fuelForDay(fuelConfig, toLocalDateStr()), [fuelConfig]);
   const [isFuelCardOpen, setIsFuelCardOpen] = useState(false); // header already shows the total
 
   // Price Book drawer state
@@ -110,8 +112,10 @@ export function ProfitView({
   // Total km comes from the trip planner
   const handleTripKm = useCallback((km: number) => {
     setFuelConfig(prev => {
-      if (prev.distanceKm === km) return prev;
-      const next = { ...prev, distanceKm: km };
+      const today = toLocalDateStr();
+      if (prev.distanceKm === km && prev.tripDate === today) return prev;
+      // keep today's tolls; yesterday's don't carry over
+      const next = { ...prev, distanceKm: km, otherExpenses: prev.tripDate === today ? prev.otherExpenses : 0, tripDate: today };
       saveFuelConfig(next);
       return next;
     });
@@ -119,9 +123,11 @@ export function ProfitView({
 
   // Fuel config handlers
   const handleUpdateFuel = (key: keyof FuelConfig, value: number | string) => {
+    const today = toLocalDateStr();
     const updated: FuelConfig = {
-      ...fuelConfig,
-      [key]: typeof value === 'string' ? parseFloat(value) || 0 : value
+      ...fuelForDay(fuelConfig, today),
+      [key]: typeof value === 'string' ? parseFloat(value) || 0 : value,
+      tripDate: today
     };
     setFuelConfig(updated);
     saveFuelConfig(updated);
@@ -130,8 +136,8 @@ export function ProfitView({
   // "Today" = orders created today only (yesterday's leftovers stay in yesterday)
   const todayOrders = useMemo(() => ordersOnDate(orders, toLocalDateStr()), [orders]);
   const profitSummary: DailyProfitSummary = useMemo(
-    () => calculateDailyProfit(todayOrders, fuelConfig, manualShoppingItems),
-    [todayOrders, fuelConfig, manualShoppingItems]
+    () => calculateDailyProfit(todayOrders, dayFuel, manualShoppingItems),
+    [todayOrders, dayFuel, manualShoppingItems]
   );
   const collection = useMemo(() => calculateCollectionStats(todayOrders), [todayOrders]);
   const bargained = useMemo(() => bargainSavings(todayOrders), [todayOrders]);
@@ -150,8 +156,8 @@ export function ProfitView({
 
   // Keep each day's history record in step with that day's orders
   useEffect(() => {
-    syncSnapshotsFromOrders(orders, fuelConfig, manualShoppingItems);
-  }, [orders, fuelConfig, manualShoppingItems]);
+    syncSnapshotsFromOrders(orders, dayFuel, manualShoppingItems);
+  }, [orders, dayFuel, manualShoppingItems]);
 
   // Query analytics for selected period
   const periodAnalytics: PeriodProfitAnalytics = getProfitAnalyticsByPeriod(
@@ -503,8 +509,8 @@ export function ProfitView({
             <div>
               <h3 className="text-[15px] font-semibold text-slate-900 font-display">ค่าเดินทางวันนี้</h3>
               <p className="text-xs text-slate-500 tabular-nums">
-                {fuelConfig.distanceKm} กม. · น้ำมัน ฿{profitSummary.fuelResult.fuelCost}
-                {fuelConfig.otherExpenses > 0 ? ` · อื่นๆ ฿${fuelConfig.otherExpenses}` : ''}
+                {dayFuel.distanceKm} กม. · น้ำมัน ฿{profitSummary.fuelResult.fuelCost}
+                {dayFuel.otherExpenses > 0 ? ` · อื่นๆ ฿${dayFuel.otherExpenses}` : ''}
               </p>
             </div>
           </div>
@@ -536,7 +542,7 @@ export function ProfitView({
                   type="number"
                   inputMode="decimal"
                   step={f.step}
-                  value={fuelConfig[f.key]}
+                  value={dayFuel[f.key]}
                   onChange={e => handleUpdateFuel(f.key, e.target.value)}
                   className="w-full px-3 py-2 text-sm font-medium tabular-nums rounded-xl bg-slate-50 border-0 ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
                 />
