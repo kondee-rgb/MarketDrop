@@ -31,6 +31,8 @@ import {
   MOCK_CUSTOMER_NAMES
 } from '@/lib/storage';
 import { canonicalName } from '@/lib/price-book';
+import { applyOrderChanges } from '@/lib/cloud-sync';
+import { useCloudSync } from '@/lib/use-cloud-sync';
 import { sortOrders, reorderOrders } from '@/lib/natural-sort';
 import { syncToGoogleSheets } from '@/lib/sheets';
 
@@ -118,6 +120,19 @@ export default function MarketDropApp() {
 
     setIsMounted(true);
   }, []);
+
+  // Cross-device sync (only runs once a PIN is saved in the admin tab)
+  useCloudSync(
+    isMounted,
+    ch => setOrders(prev => sortOrders(applyOrderChanges(prev, ch), sortMode, sortDirection)),
+    () => {
+      const shop = loadShoppingState();
+      setBoughtShoppingIds(shop.boughtItemIds || []);
+      setManualShoppingItems(shop.manualItems || []);
+      setShoppingItemOrder(shop.itemOrder || []);
+      setSheetsConfig(loadSheetsConfig());
+    }
+  );
 
   // Remember the sort choice (incl. MANUAL after a drag)
   useEffect(() => {

@@ -1599,3 +1599,84 @@ describe('27. Backup file', () => {
     expect(typeof parseBackup(JSON.stringify({ app: 'MarketDrop', data: { evil_key: 'x' } }))).toBe('string');
   });
 });
+
+describe('28. Cloud sync between two phones', () => {
+  const fakeStore = (init: Record<string, string> = {}) => {
+    const m = new Map(Object.entries(init));
+    return {
+      get length() { return m.size; },
+      key: (i: number) => Array.from(m.keys())[i] ?? null,
+      getItem: (k: string) => m.get(k) ?? null,
+      setItem: (k: string, v: string) => void m.set(k, v),
+      removeItem: (k: string) => void m.delete(k),
+      m
+    };
+  };
+  // in-memory stand-in for /api/store with the same rules (server time stamps every write)
+  const fakeServer = () => {
+    let clock = Date.parse('2026-11-16T00:00:00Z');
+    const tick = () => new Date((clock += 1000)).toISOString();
+    const kv = new Map<string, { value: string; updated_at: string }>();
+    const orders = new Map<string, { data: unknown; deleted: boolean; updated_at: string }>();
+    const fetcher = async (url: string, init: RequestInit = {}) => {
+      if ((init.headers as Record<string, string>)['x-app-pin'] !== 'pin123456') {
+        return new Response(JSON.stringify({ success: false, code: 'bad_pin' }), { status: 401 });
+      }
+      if (init.method === 'POST') {
+        const body = JSON.parse(String(init.body));
+        const now = tick();
+        for (const r of body.kv) kv.set(r.key, { value: r.value, updated_at: now });
+        for (const r of body.orders) orders.set(r.id, { data: r.deleted ? null : r.data, deleted: !!r.deleted, updated_at: now });
+        return new Response(JSON.stringify({ success: true, now }));
+      }
+      const since = new URL(url, 'http://x').searchParams.get('since') || '';
+      const now = tick();
+      const after = (t: string) => !since || t > since;
+      return new Response(JSON.stringify({
+        success: true, now,
+        kv: [...kv].filter(([, r]) => after(r.updated_at)).map(([key, r]) => ({ key, ...r })),
+        orders: [...orders].filter(([, r]) => after(r.updated_at)).map(([id, r]) => ({ id, ...r }))
+      }));
+    };
+    return { fetcher, kv, orders };
+  };
+  const ord = (id: string, stopNumber = 1, extra: object = {}) => ({ id, stopNumber, houseNumber: id, items: [], ...extra });
+
+  it('shares orders and settings, keeps each phone\'s own stop numbers, and syncs deletes', async () => {
+    const { syncOnce } = await import('../src/lib/cloud-sync');
+    const server = fakeServer();
+    const A = fakeStore({ marketdrop_orders_v4: JSON.stringify([ord('o1')]), marketdrop_price_book_v1: '["A"]', marketdrop_sort_pref_v1: 'A-sort' });
+    const B = fakeStore({ marketdrop_orders_v4: JSON.stringify([ord('o2')]), marketdrop_sort_pref_v1: 'B-sort' });
+    const run = (s: ReturnType<typeof fakeStore>) => syncOnce('pin123456', { store: s, fetcher: server.fetcher });
+    const ids = (s: ReturnType<typeof fakeStore>) => JSON.parse(s.getItem('marketdrop_orders_v4')!).map((o: { id: string }) => o.id).sort();
+
+    expect((await syncOnce('wrong', { store: A, fetcher: server.fetcher })).code).toBe('bad_pin');
+    expect((await run(A)).ok).toBe(true);
+    await run(B); // B's first sync: takes A's data and adds its own order
+    await run(A);
+    expect(ids(A)).toEqual(['o1', 'o2']);
+    expect(ids(B)).toEqual(['o1', 'o2']);
+    expect(B.getItem('marketdrop_price_book_v1')).toBe('["A"]');
+    expect(B.getItem('marketdrop_sort_pref_v1')).toBe('B-sort'); // per-phone setting stays
+
+    // different stop numbers on each phone must not bounce back and forth
+    B.setItem('marketdrop_orders_v4', JSON.stringify(JSON.parse(B.getItem('marketdrop_orders_v4')!).map((o: object, i: number) => ({ ...o, stopNumber: 9 - i }))));
+    expect((await run(B)).pushed).toBe(0);
+
+    // an edit on A reaches B, B keeps its stop number
+    A.setItem('marketdrop_orders_v4', JSON.stringify(JSON.parse(A.getItem('marketdrop_orders_v4')!).map((o: { id: string }) => (o.id === 'o1' ? { ...o, houseNumber: '99/9' } : o))));
+    A.setItem('marketdrop_price_book_v1', '["A2"]');
+    expect((await run(A)).pushed).toBe(2);
+    await run(B);
+    const o1 = JSON.parse(B.getItem('marketdrop_orders_v4')!).find((o: { id: string }) => o.id === 'o1');
+    expect([o1.houseNumber, o1.stopNumber]).toEqual(['99/9', 8]); // B numbered o2=9, o1=8
+    expect(B.getItem('marketdrop_price_book_v1')).toBe('["A2"]');
+
+    // B deletes o2 → gone on A too
+    B.setItem('marketdrop_orders_v4', JSON.stringify(JSON.parse(B.getItem('marketdrop_orders_v4')!).filter((o: { id: string }) => o.id !== 'o2')));
+    await run(B);
+    await run(A);
+    expect(ids(A)).toEqual(['o1']);
+    expect(server.orders.get('o2')!.deleted).toBe(true);
+  });
+});

@@ -17,6 +17,7 @@ import { OrderCardAdmin } from './OrderCardAdmin';
 import { LinePasteModal } from './LinePasteModal';
 import { ManualOrderModal } from './ManualOrderModal';
 import { BackupCard } from './BackupCard';
+import { CloudSyncCard } from './CloudSyncCard';
 import { groupOrdersBySoi, reorderOrders } from '@/lib/natural-sort';
 import { exportOrdersToCsv } from '@/lib/sheets';
 
@@ -326,6 +327,7 @@ export function OrderManagerView({
       )}
 
       {/* Modals */}
+      <CloudSyncCard />
       <BackupCard />
 
       <LinePasteModal
