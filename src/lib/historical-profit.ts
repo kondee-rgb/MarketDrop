@@ -60,6 +60,12 @@ export function toLocalDateStr(d: Date = new Date()): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+/** "2026-11-16" moved by n calendar days (local time). */
+export function shiftDate(date: string, n: number): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return toLocalDateStr(new Date(y, m - 1, d + n));
+}
+
 const PROFIT_HISTORY_KEY = 'marketdrop_daily_profit_history_v1';
 
 // In-memory cache for SSR / Node / Test environments
@@ -180,7 +186,7 @@ export function clearProfitHistory(): void {
 /**
  * แปลงวันที่เป็นตัวย่อภาษาไทย เช่น "14 พ.ย."
  */
-function formatThaiShortDate(dateStr: string): string {
+export function formatThaiShortDate(dateStr: string): string {
   try {
     const d = new Date(dateStr);
     const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];

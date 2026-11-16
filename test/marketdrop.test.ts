@@ -1791,3 +1791,12 @@ describe('30. Per-day travel, shopping only from orders to deliver, price-book r
     pb.clearPriceBook();
   });
 });
+
+describe('31. profit page day arrows', () => {
+  it('shiftDate steps calendar days across month and year ends', async () => {
+    const { shiftDate } = await import('../src/lib/historical-profit');
+    expect(shiftDate('2026-11-16', -1)).toBe('2026-11-15');
+    expect(shiftDate('2026-12-01', -1)).toBe('2026-11-30');
+    expect(shiftDate('2026-12-31', 1)).toBe('2027-01-01');
+  });
+});
