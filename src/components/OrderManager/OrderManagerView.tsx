@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ClipboardList,
   Plus,
@@ -10,9 +10,13 @@ import {
   Search,
   Download,
   FileSpreadsheet,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Rows3
 } from 'lucide-react';
 import { Order, SortDirection, SortMode } from '@/types/order';
+import { formatThaiShortDate, orderDate, shiftDate, toLocalDateStr } from '@/lib/historical-profit';
 import { OrderCardAdmin } from './OrderCardAdmin';
 import { LinePasteModal } from './LinePasteModal';
 import { ManualOrderModal } from './ManualOrderModal';
@@ -49,9 +53,26 @@ export function OrderManagerView({
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [isGroupedView, setIsGroupedView] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const today = toLocalDateStr();
+  const [day, setDay] = useState(today);
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    try {
+      setCompact(localStorage.getItem('md_admin_compact') === '1'); // per-phone view preference, not synced
+    } catch {}
+  }, []);
+  const toggleCompact = () => {
+    setCompact(c => {
+      try {
+        localStorage.setItem('md_admin_compact', c ? '0' : '1');
+      } catch {}
+      return !c;
+    });
+  };
 
-  // กรองออเดอร์ตามคำค้นหา
-  const filteredOrders = orders.filter(o => {
+  // กรองออเดอร์ตามวันที่เลือก + คำค้นหา
+  const dayOrders = orders.filter(o => orderDate(o, today) === day);
+  const filteredOrders = dayOrders.filter(o => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -64,6 +85,7 @@ export function OrderManagerView({
   });
 
   const handleAddOrders = (newOrders: Order[]) => {
+    setDay(today); // new orders are today's
     setOrders(prev => {
       const combined = [...prev, ...newOrders];
       return combined.map((ord, idx) => ({ ...ord, stopNumber: idx + 1 }));
@@ -78,6 +100,7 @@ export function OrderManagerView({
       if (exists) {
         return prev.map(o => (o.id === saved.id ? saved : o));
       } else {
+        setDay(today);
         const next = [...prev, saved];
         return next.map((o, idx) => ({ ...o, stopNumber: idx + 1 }));
       }
@@ -225,8 +248,20 @@ export function OrderManagerView({
             </button>
           </div>
 
-          {/* Group View Toggle & Clear All */}
+          {/* Compact / Group View Toggle & Clear All */}
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleCompact}
+              aria-pressed={compact}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold border transition-colors ${
+                compact
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+              }`}
+            >
+              <Rows3 className="w-3.5 h-3.5" />
+              <span>{compact ? 'ขยายการ์ด' : 'ย่อการ์ด'}</span>
+            </button>
             <button
               onClick={() => setIsGroupedView(!isGroupedView)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold border transition-colors ${
@@ -252,6 +287,37 @@ export function OrderManagerView({
         </div>
       </div>
 
+      {/* Day picker */}
+      <div className="flex items-center gap-2 bg-white rounded-2xl border border-slate-200/80 p-2 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setDay(d => shiftDate(d, -1))}
+          aria-label="วันก่อนหน้า"
+          className="w-9 h-9 shrink-0 rounded-xl bg-slate-50 ring-1 ring-slate-200 text-slate-600 flex items-center justify-center"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => setDay(today)}
+          className="flex-1 min-w-0 text-center text-sm font-semibold text-slate-800"
+          title="กลับไปวันนี้"
+        >
+          {day === today ? 'วันนี้ · ' : ''}
+          {formatThaiShortDate(day)}
+          <span className="font-normal text-slate-500"> · {dayOrders.length} ออเดอร์</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setDay(d => shiftDate(d, 1))}
+          disabled={day >= today}
+          aria-label="วันถัดไป"
+          className="w-9 h-9 shrink-0 rounded-xl bg-slate-50 ring-1 ring-slate-200 text-slate-600 flex items-center justify-center disabled:opacity-30"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
       {/* Orders List / Groups */}
       {filteredOrders.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
@@ -259,6 +325,9 @@ export function OrderManagerView({
             <ListFilter className="w-6 h-6" />
           </div>
           <h3 className="font-bold text-slate-700">ไม่พบรายการออเดอร์</h3>
+          {dayOrders.length === 0 && orders.length > 0 && (
+            <p className="text-xs text-slate-500">มีออเดอร์ของวันอื่น {orders.length} รายการ · กดลูกศร ‹ เพื่อดูวันก่อน</p>
+          )}
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
             กดปุ่ม &ldquo;วางแชท / พูด&rdquo; เพื่อดึงข้อมูลออเดอร์จากแชท หรือกดปุ่ม &ldquo;เพิ่มออเดอร์&rdquo;
           </p>
@@ -298,6 +367,7 @@ export function OrderManagerView({
                     }}
                     onDelete={() => handleDeleteOrder(order.id)}
                     onSelectForDriver={onOpenDriverMode}
+                    compact={compact}
                   />
                 ))}
               </div>
@@ -307,22 +377,26 @@ export function OrderManagerView({
       ) : (
         /* Flat Ordered List */
         <div className="space-y-2.5">
-          {filteredOrders.map((order, idx) => (
-            <OrderCardAdmin
-              key={order.id}
-              order={order}
-              index={idx}
-              totalOrders={filteredOrders.length}
-              onMoveUp={() => handleMoveUp(idx)}
-              onMoveDown={() => handleMoveDown(idx)}
-              onEdit={() => {
-                setEditingOrder(order);
-                setIsManualModalOpen(true);
-              }}
-              onDelete={() => handleDeleteOrder(order.id)}
-              onSelectForDriver={onOpenDriverMode}
-            />
-          ))}
+          {filteredOrders.map(order => {
+            const at = orders.findIndex(o => o.id === order.id); // position in the full list, not the filtered one
+            return (
+              <OrderCardAdmin
+                key={order.id}
+                order={order}
+                index={at}
+                totalOrders={orders.length}
+                onMoveUp={() => handleMoveUp(at)}
+                onMoveDown={() => handleMoveDown(at)}
+                onEdit={() => {
+                  setEditingOrder(order);
+                  setIsManualModalOpen(true);
+                }}
+                onDelete={() => handleDeleteOrder(order.id)}
+                onSelectForDriver={onOpenDriverMode}
+                compact={compact}
+              />
+            );
+          })}
         </div>
       )}
 

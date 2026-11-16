@@ -13,6 +13,8 @@ interface OrderCardAdminProps {
   onEdit: () => void;
   onDelete: () => void;
   onSelectForDriver: () => void;
+  /** one short row: stop, house, name, amount, status, edit */
+  compact?: boolean;
 }
 
 export function OrderCardAdmin({
@@ -23,9 +25,53 @@ export function OrderCardAdmin({
   onMoveDown,
   onEdit,
   onDelete,
-  onSelectForDriver
+  onSelectForDriver,
+  compact = false
 }: OrderCardAdminProps) {
   const isDelivered = order.deliveryStatus === 'DELIVERED';
+
+  if (compact) {
+    return (
+      <div
+        className={`flex items-center gap-2.5 bg-white rounded-xl border px-3 py-2 ${
+          isDelivered ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200/90'
+        }`}
+      >
+        <span
+          className={`w-7 h-7 shrink-0 rounded-lg flex items-center justify-center font-bold text-xs ${
+            isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'
+          }`}
+        >
+          {order.stopNumber}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-slate-900 truncate">
+            {order.houseNumber} <span className="font-medium text-slate-600">· {order.customerName}</span>
+          </p>
+          <p className="text-[11px] text-slate-500 truncate">
+            {order.items.map(it => `${it.name} ${it.quantity} ${it.unit}`).join(', ')}
+          </p>
+        </div>
+        <span
+          className={`shrink-0 text-xs font-bold tabular-nums ${order.paymentStatus === 'PAID' ? 'text-emerald-700' : 'text-amber-700'}`}
+        >
+          ฿{order.totalAmount}
+        </span>
+        {isDelivered ? (
+          <CheckCircle className="w-4 h-4 shrink-0 text-emerald-600" aria-label="ส่งแล้ว" />
+        ) : (
+          <Clock className="w-4 h-4 shrink-0 text-amber-500" aria-label="รอส่ง" />
+        )}
+        <button
+          onClick={onEdit}
+          title="แก้ไขออเดอร์"
+          className="p-1 shrink-0 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg"
+        >
+          <Edit3 className="w-4 h-4" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
